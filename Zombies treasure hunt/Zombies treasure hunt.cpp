@@ -60,9 +60,9 @@ D2D1_RECT_F b1Rect{ 50.0f, 10.0f, scr_width / 3.0f - 50.0f, 40.0f };
 D2D1_RECT_F b2Rect{ scr_width / 3.0f + 50.0f, 10.0f, scr_width * 2.0f / 3.0f - 50.0f, 40.0f };
 D2D1_RECT_F b3Rect{ scr_width * 2.0f / 3.0f + 50.0f, 10.0f, scr_width - 50.0f, 40.0f };
 
-D2D1_RECT_F b1TxtRect{ 70.0f, 10.0f, scr_width / 3.0f - 50.0f, 40.0f };
-D2D1_RECT_F b2TxtRect{ scr_width / 3.0f + 70.0f, 10.0f, scr_width * 2.0f / 3.0f - 50.0f, 40.0f };
-D2D1_RECT_F b3TxtRect{ scr_width * 2.0f / 3.0f + 60.0f, 10.0f, scr_width - 50.0f, 40.0f };
+D2D1_RECT_F b1TxtRect{ 90.0f, 15.0f, scr_width / 3.0f - 50.0f, 40.0f };
+D2D1_RECT_F b2TxtRect{ scr_width / 3.0f + 90.0f, 15.0f, scr_width * 2.0f / 3.0f - 50.0f, 40.0f };
+D2D1_RECT_F b3TxtRect{ scr_width * 2.0f / 3.0f + 70.0f, 15.0f, scr_width - 50.0f, 40.0f };
 
 D2D1_RECT_F FullScreenRect{ 0, 0, scr_width, scr_height };
 
@@ -293,11 +293,13 @@ void InitGame()
 		delete Field;
 		Field = new dll::FIELD;
 	}
+	else Field = new dll::FIELD;
 	if (Hero)
 	{
 		Hero->Release();
 		Hero = dll::HERO::create(RandIt(0.0f, scr_width - 100.f), ground - 100.0f);
 	}
+	else Hero = dll::HERO::create(RandIt(0.0f, scr_width - 100.f), ground - 100.0f);
 
 
 
@@ -382,6 +384,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 
 	case WM_SETCURSOR:
 		GetCursorPos(&cur_pos);
+		ScreenToClient(hwnd, &cur_pos);
 		if (LOWORD(lParam) == HTCLIENT)
 		{
 			if (!in_client)
@@ -1039,7 +1042,7 @@ void CreateResources()
 	}
 
 	PlaySound(L".\\res\\snd\\intro.wav", NULL, SND_ASYNC);
-	for (int i = 0; i < 150; ++i)
+	for (int i = 0; i < 250; ++i)
 	{
 		Draw->BeginDraw();
 		Draw->DrawBitmap(bmpIntro[IntroFrame()], FullScreenRect);
@@ -1051,7 +1054,6 @@ void CreateResources()
 	Draw->DrawBitmap(bmpLogo, FullScreenRect);
 	Draw->EndDraw();
 	PlaySound(L".\\res\\snd\\boom.wav", NULL, SND_SYNC);
-	Sleep(2000);
 }
 
 
@@ -1066,14 +1068,98 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 	CreateResources();
 
+	while (bMsg.message != WM_QUIT)
+	{
+		if ((bRet = PeekMessage(&bMsg, NULL, NULL, NULL, PM_REMOVE)) != 0)
+		{
+			if (bRet == -1)ErrExit(eMsg);
+			TranslateMessage(&bMsg);
+			DispatchMessage(&bMsg);
+		}
+
+		if (pause)
+		{
+			if (show_help)continue;
+			Draw->BeginDraw();
+			Draw->DrawBitmap(bmpIntro[IntroFrame()], FullScreenRect);
+			if (txtBrush && bigText)Draw->DrawTextW(L"ПАУЗА", 6, bigText, D2D1::RectF(scr_width / 2.0f - 100.0f,
+				scr_height / 2.0f - 50.0f, scr_width, scr_height), txtBrush);
+			Draw->EndDraw();
+			continue;
+		}
+
+	/////////////////////////////////////////////////////////////////
 
 
 
 
 
+	// DRAW THINGS **************************************************
 
+		Draw->BeginDraw();
 
+		if (nrmText && statBrush && txtBrush && hgltBrush && inactBrush && b1Bckg && b2Bckg && b3Bckg)
+		{
+			Draw->FillRectangle(D2D1::RectF(0, 0, scr_width, 50.0f), statBrush);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b1Rect, 10.0f, 15.0f), b1Bckg);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b2Rect, 10.0f, 15.0f), b2Bckg);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b3Rect, 10.0f, 15.0f), b3Bckg);
+			Draw->FillRectangle(D2D1::RectF(0, ground, scr_width, scr_height), statBrush);
 
+			if (name_set)Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, inactBrush);
+			else
+			{
+				if (b1Hglt)Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, hgltBrush);
+				else Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, txtBrush);
+			}
+			if (b2Hglt)Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmText, b2TxtRect, hgltBrush);
+			else Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmText, b2TxtRect, txtBrush);
+			if (b3Hglt)Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtRect, hgltBrush);
+			else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtRect, txtBrush);
+		}
+
+		if (Field)
+		{
+			for (int rows = 0; rows < FIELD_ROWS; ++rows)
+			{
+				for (int cols = 0; cols < FIELD_COLS; ++cols)
+				{
+					if (Field->is_water_tile(rows, cols))Draw->DrawBitmap(bmpWater, Field->get_tile_rect(rows, cols));
+					else Draw->DrawBitmap(bmpDirt, Field->get_tile_rect(rows, cols));
+				}
+			}
+		}
+
+		if (Hero)
+		{
+			int frame = Hero->get_frame();
+
+			switch (Hero->get_action())
+			{
+			case action::stand:
+				if (Hero->dir == dirs::left)Draw->DrawBitmap(bmpHeroStandL[frame],
+					Resizer(bmpHeroStandL[frame], Hero->start.x, Hero->start.y));
+				else Draw->DrawBitmap(bmpHeroStandR[frame], Resizer(bmpHeroStandR[frame], Hero->start.x, Hero->start.y));
+				break;
+
+			case action::walk:
+				if (Hero->dir == dirs::left)Draw->DrawBitmap(bmpHeroWalkL[frame],
+					Resizer(bmpHeroWalkL[frame], Hero->start.x, Hero->start.y));
+				else Draw->DrawBitmap(bmpHeroWalkR[frame], Resizer(bmpHeroWalkR[frame], Hero->start.x, Hero->start.y));
+				break;
+
+			case action::shoot:
+				if (Hero->dir == dirs::left)Draw->DrawBitmap(bmpHeroShootL[frame],
+					Resizer(bmpHeroShootL[frame], Hero->start.x, Hero->start.y));
+				else Draw->DrawBitmap(bmpHeroShootR[frame], Resizer(bmpHeroShootR[frame], Hero->start.x, Hero->start.y));
+				break;
+			}
+		}
+
+	////////////////////////////////////////////////////////////
+	
+		Draw->EndDraw();
+	}
 
 	std::remove(tmp_file);
 	ReleaseResources();
