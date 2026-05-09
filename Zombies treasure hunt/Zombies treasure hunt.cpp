@@ -64,6 +64,8 @@ D2D1_RECT_F b1TxtRect{ 70.0f, 10.0f, scr_width / 3.0f - 50.0f, 40.0f };
 D2D1_RECT_F b2TxtRect{ scr_width / 3.0f + 70.0f, 10.0f, scr_width * 2.0f / 3.0f - 50.0f, 40.0f };
 D2D1_RECT_F b3TxtRect{ scr_width * 2.0f / 3.0f + 60.0f, 10.0f, scr_width - 50.0f, 40.0f };
 
+D2D1_RECT_F FullScreenRect{ 0, 0, scr_width, scr_height };
+
 wchar_t current_player[16]{ L"TARLYO" };
 
 float speed{ 1.0f };
@@ -240,6 +242,21 @@ void ReleaseResources()
 	for (int i = 0; i < 16; ++i)if (!FreeMem(&bmpHeroWalkL[i]))LogErr(L"Error unloading D2D1 bmpHeroWalkL !");
 	for (int i = 0; i < 16; ++i)if (!FreeMem(&bmpHeroWalkR[i]))LogErr(L"Error unloading D2D1 bmpHeroWalkR !");
 }
+int IntroFrame()
+{
+	static int frame_delay{ 4 };
+	static int frame{ 0 };
+
+	--frame_delay;
+	if (frame_delay <= 0)
+	{
+		frame_delay = 4;
+		++frame;
+		if (frame > 15)frame = 0;
+	}
+
+	return frame;
+}
 void ErrExit(int what)
 {
 	MessageBeep(MB_ICONERROR);
@@ -288,7 +305,754 @@ void InitGame()
 
 }
 
+INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (ReceivedMsg)
+	{
+	case WM_INITDIALOG:
+		SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)(mainIco));
+		return true;
 
+	case WM_CLOSE:
+		EndDialog(hwnd, IDCANCEL);
+		break;
+
+	case WM_COMMAND:
+		if (GetDlgItemText(hwnd, IDC_NAME, current_player, 16) < 1)
+		{
+			wcscpy_s(current_player, L"TARLYO");
+			if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+			MessageBox(bHwnd, L"Ха, ха, ха ! Забрави си името !", L"Забраватор !", MB_OK | MB_APPLMODAL | MB_ICONEXCLAMATION);
+			EndDialog(hwnd, IDCANCEL);
+			break;
+		}
+		EndDialog(hwnd, IDOK);
+		break;
+	}
+
+	return (INT_PTR)(FALSE);
+}
+LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (ReceivedMsg)
+	{
+	case WM_CREATE:
+		if (bIns)
+		{
+			bBar = CreateMenu();
+			bMain = CreateMenu();
+			bStore = CreateMenu();
+
+			AppendMenu(bBar, MF_POPUP, (UINT_PTR)(bMain), L"Основно меню");
+			AppendMenu(bBar, MF_POPUP, (UINT_PTR)(bStore), L"Меню за данни");
+
+			AppendMenu(bMain, MF_STRING, mNew, L"Нова игра");
+			AppendMenu(bMain, MF_STRING, mSpeed, L"Турбо режим");
+			AppendMenu(bMain, MF_SEPARATOR, NULL, NULL);
+			AppendMenu(bMain, MF_STRING, mExit, L"Изход");
+
+			AppendMenu(bStore, MF_STRING, mSave, L"Запази игра");
+			AppendMenu(bStore, MF_STRING, mLoad, L"Зареди игра");
+			AppendMenu(bStore, MF_SEPARATOR, NULL, NULL);
+			AppendMenu(bStore, MF_STRING, mHoF, L"Зала на славата");
+
+			SetMenu(hwnd, bBar);
+
+			InitGame();
+		}
+		break;
+
+	case WM_CLOSE:
+		pause = true;
+		if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+		if (MessageBox(hwnd, L"Ако излезеш, губиш играта !\n\nНаистина ли излизаш ?", L"Изход !",
+			MB_YESNO | MB_APPLMODAL | MB_ICONEXCLAMATION) == IDNO)
+		{
+			pause = false;
+			break;
+		}
+		GameOver();
+		break;
+
+	case WM_PAINT:
+		PaintDC = BeginPaint(hwnd, &bPaint);
+		FillRect(PaintDC, &bPaint.rcPaint, CreateSolidBrush(RGB(10, 10, 10)));
+		EndPaint(hwnd, &bPaint);
+		break;
+
+	case WM_SETCURSOR:
+		GetCursorPos(&cur_pos);
+		if (LOWORD(lParam) == HTCLIENT)
+		{
+			if (!in_client)
+			{
+				in_client = true;
+				pause = false;
+			}
+
+			if (cur_pos.y * y_scale <= 50)
+			{
+				if (cur_pos.x * x_scale >= b1Rect.left && cur_pos.x * x_scale <= b1Rect.right)
+				{
+					if (!b1Hglt)
+					{
+						if (sound)mciSendString(L"play .\\res\\snd\\click.wav", NULL, NULL, NULL);
+						b1Hglt = true;
+						b2Hglt = false;
+						b3Hglt = false;
+					}
+				}
+				else if (cur_pos.x * x_scale >= b2Rect.left && cur_pos.x * x_scale <= b2Rect.right)
+				{
+					if (!b2Hglt)
+					{
+						if (sound)mciSendString(L"play .\\res\\snd\\click.wav", NULL, NULL, NULL);
+						b1Hglt = false;
+						b2Hglt = true;
+						b3Hglt = false;
+					}
+				}
+				else if (cur_pos.x * x_scale >= b3Rect.left && cur_pos.x * x_scale <= b3Rect.right)
+				{
+					if (!b3Hglt)
+					{
+						if (sound)mciSendString(L"play .\\res\\snd\\click.wav", NULL, NULL, NULL);
+						b1Hglt = false;
+						b2Hglt = false;
+						b3Hglt = true;
+					}
+				}
+				else if (b1Hglt || b2Hglt || b3Hglt)
+				{
+					if (sound)mciSendString(L"play .\\res\\snd\\click.wav", NULL, NULL, NULL);
+					b1Hglt = false;
+					b2Hglt = false;
+					b3Hglt = false;
+				}
+
+				SetCursor(outCur);
+
+				return true;
+			}
+			else if (b1Hglt || b2Hglt || b3Hglt)
+			{
+				if (sound)mciSendString(L"play .\\res\\snd\\click.wav", NULL, NULL, NULL);
+				b1Hglt = false;
+				b2Hglt = false;
+				b3Hglt = false;
+			}
+
+			SetCursor(mainCur);
+
+			return true;
+		}
+		else
+		{
+			if (in_client)
+			{
+				in_client = false;
+				pause = true;
+			}
+
+			if (b1Hglt || b2Hglt || b3Hglt)
+			{
+				if (sound)mciSendString(L"play .\\res\\snd\\click.wav", NULL, NULL, NULL);
+				b1Hglt = false;
+				b2Hglt = false;
+				b3Hglt = false;
+			}
+
+			SetCursor(LoadCursor(NULL, IDC_ARROW));
+
+			return true;
+		}
+		break;
+
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case mNew:
+			pause = true;
+			if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+			if (MessageBox(hwnd, L"Ако рестартираш, губиш играта !\n\nНаистина ли рестартираш ?", L"Рестарт !",
+				MB_YESNO | MB_APPLMODAL | MB_ICONEXCLAMATION) == IDNO)
+			{
+				pause = false;
+				break;
+			}
+			InitGame();
+			break;
+
+		case mSpeed:
+			pause = true;
+			if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+			if (MessageBox(hwnd, L"Готов ли си за турбо скорост ?", L"Турбо режим !",
+				MB_YESNO | MB_APPLMODAL | MB_ICONEXCLAMATION) == IDNO)
+			{
+				pause = false;
+				break;
+			}
+			speed++;
+			break;
+
+		case mExit:
+			SendMessage(hwnd, WM_CLOSE, NULL, NULL);
+			break;
+
+		}
+		break;
+
+
+
+
+	default: return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
+	}
+
+	return (LRESULT)(FALSE);
+}
+
+void CreateResources()
+{
+	int result = 0;
+	CheckFile(Ltmp_file, &result);
+	if (result == FILE_EXIST)ErrExit(eStarted);
+	else
+	{
+		std::wofstream start(Ltmp_file);
+		start << L"Game started at: " << std::chrono::system_clock::now();
+		start.close();
+	}
+
+	int win_x = (int)(GetSystemMetrics(SM_CXSCREEN) / 2 - (int)(scr_width / 2.0f));
+	int win_y = 10;
+
+	if (GetSystemMetrics(SM_CXSCREEN) < win_x + (int)(scr_width) || GetSystemMetrics(SM_CYSCREEN) < win_y + (int)(scr_height))
+		ErrExit(eScreen);
+
+	mainIco = (HICON)(LoadImage(NULL, L".\\res\\main.ico", IMAGE_ICON, 255, 255, LR_LOADFROMFILE));
+	if (!mainIco)ErrExit(eIcon);
+	mainCur = LoadCursorFromFileW(L".\\res\\main.ani");
+	outCur = LoadCursorFromFileW(L".\\res\\out.ani");
+	if (!mainCur || !outCur)ErrExit(eCursor);
+
+	bWinClass.lpszClassName = bWinClassName;
+	bWinClass.hInstance = bIns;
+	bWinClass.lpfnWndProc = &WinProc;
+	bWinClass.hbrBackground = CreateSolidBrush(RGB(10, 10, 10));
+	bWinClass.hIcon = mainIco;
+	bWinClass.hCursor = mainCur;
+	bWinClass.style = CS_DROPSHADOW;
+
+	if (!RegisterClass(&bWinClass))ErrExit(eClass);
+
+	bHwnd = CreateWindow(bWinClassName, L"TREASURE OF THE ZOMBIE KING", WS_CAPTION | WS_SYSMENU, win_x, win_y, (int)(scr_width),
+		(int)(scr_height), NULL, NULL, bIns, NULL);
+	
+	if (!bHwnd)ErrExit(eWindow);
+	else
+	{
+		ShowWindow(bHwnd, SW_SHOWDEFAULT);
+
+		HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &iFactory);
+		if (hr != S_OK)
+		{
+			LogErr(L"Error creating D2D1 main Factory !");
+			ErrExit(eD2D);
+		}
+
+		if (iFactory)hr = iFactory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(), D2D1::HwndRenderTargetProperties(bHwnd,
+			D2D1::SizeU((UINT32)(scr_width), (UINT32)(scr_height))), &Draw);
+		if (hr != S_OK)
+		{
+			LogErr(L"Error creating D2D1 HwndRenderTarget !");
+			ErrExit(eD2D);
+		}
+		
+		if (Draw)
+		{
+			RECT ClR{};
+			GetClientRect(bHwnd, &ClR);
+
+			D2D1_SIZE_F DIPRect{ Draw->GetSize() };
+
+			x_scale = DIPRect.width / (ClR.right - ClR.left);
+			y_scale = DIPRect.height / (ClR.bottom - ClR.top);
+
+			D2D1_GRADIENT_STOP gStops[2]{};
+			ID2D1GradientStopCollection* gColl{ nullptr };
+
+			gStops[0].position = 0;
+			gStops[0].color = D2D1::ColorF(D2D1::ColorF::MediumOrchid);
+			gStops[1].position = 1.0f;
+			gStops[1].color = D2D1::ColorF(D2D1::ColorF::Maroon);
+
+			hr = Draw->CreateGradientStopCollection(gStops, 2, &gColl);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error creating D2D1 RadialGradientStopCollection for butBckg !");
+				ErrExit(eD2D);
+			}
+			if (gColl)
+			{
+				hr = Draw->CreateRadialGradientBrush(D2D1::RadialGradientBrushProperties(D2D1::Point2F(b1Rect.left +
+					(b1Rect.right - b1Rect.left) / 2.0f, 25.0f), D2D1::Point2F(0, 0), (b1Rect.right - b1Rect.left) / 2.0f, 25.0f),
+					gColl, &b1Bckg);
+				hr = Draw->CreateRadialGradientBrush(D2D1::RadialGradientBrushProperties(D2D1::Point2F(b2Rect.left +
+					(b2Rect.right - b2Rect.left) / 2.0f, 25.0f), D2D1::Point2F(0, 0), (b2Rect.right - b2Rect.left) / 2.0f, 25.0f),
+					gColl, &b2Bckg);
+				hr = Draw->CreateRadialGradientBrush(D2D1::RadialGradientBrushProperties(D2D1::Point2F(b3Rect.left +
+					(b3Rect.right - b3Rect.left) / 2.0f, 25.0f), D2D1::Point2F(0, 0), (b3Rect.right - b3Rect.left) / 2.0f, 25.0f),
+					gColl, &b3Bckg);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error creating D2D1 RadialGradientBrushes for butBckg !");
+					ErrExit(eD2D);
+				}
+				FreeMem(&gColl);
+			}
+
+			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::CadetBlue), &statBrush);
+			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Lime), &txtBrush);
+			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Gold), &hgltBrush);
+			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::PowderBlue), &inactBrush);
+
+			if (hr != S_OK)
+			{
+				LogErr(L"Error creating D2D1 Text Bushes !");
+				ErrExit(eD2D);
+			}
+
+			bmpIconArmor = Load(L".\\res\\img\\assets\\icons\\armor.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpIconArmor !");
+				ErrExit(eD2D);
+			}
+			bmpIconGold = Load(L".\\res\\img\\assets\\icons\\gold.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpIconGold !");
+				ErrExit(eD2D);
+			}
+			bmpIconGun = Load(L".\\res\\img\\assets\\icons\\gun.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpIconGun !");
+				ErrExit(eD2D);
+			}
+
+			bmpBullet = Load(L".\\res\\img\\assets\\bullet.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpBullet !");
+				ErrExit(eD2D);
+			}
+			bmpChest = Load(L".\\res\\img\\assets\\chest.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpChest !");
+				ErrExit(eD2D);
+			}
+			bmpMap = Load(L".\\res\\img\\assets\\map.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpMap !");
+				ErrExit(eD2D);
+			}
+			bmpPotion = Load(L".\\res\\img\\assets\\potion.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpPotion !");
+				ErrExit(eD2D);
+			}
+
+			bmpDirt = Load(L".\\res\\img\\field\\dirt.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpDirt !");
+				ErrExit(eD2D);
+			}
+			bmpLogo = Load(L".\\res\\img\\field\\logo.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpLogo !");
+				ErrExit(eD2D);
+			}
+			bmpLoose = Load(L".\\res\\img\\field\\loose.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpLoose !");
+				ErrExit(eD2D);
+			}
+			bmpMark = Load(L".\\res\\img\\field\\mark.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpMark !");
+				ErrExit(eD2D);
+			}
+			bmpMountain1 = Load(L".\\res\\img\\field\\Mountain1.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpMountain1 !");
+				ErrExit(eD2D);
+			}
+			bmpMountain2 = Load(L".\\res\\img\\field\\Mountain2.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpMountain2 !");
+				ErrExit(eD2D);
+			}
+			bmpRecord = Load(L".\\res\\img\\field\\Record.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpRecord !");
+				ErrExit(eD2D);
+			}
+			bmpRIP = Load(L".\\res\\img\\field\\RIP.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpRIP !");
+				ErrExit(eD2D);
+			}
+			bmpTomb = Load(L".\\res\\img\\field\\Tomb.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpTomb !");
+				ErrExit(eD2D);
+			}
+			bmpTree1 = Load(L".\\res\\img\\field\\Tree1.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpTree1 !");
+				ErrExit(eD2D);
+			}
+			bmpTree2 = Load(L".\\res\\img\\field\\Tree2.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpTree2 !");
+				ErrExit(eD2D);
+			}
+			bmpTree3 = Load(L".\\res\\img\\field\\Tree3.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpTree3 !");
+				ErrExit(eD2D);
+			}
+			bmpWater = Load(L".\\res\\img\\field\\water.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpWater !");
+				ErrExit(eD2D);
+			}
+			bmpWin = Load(L".\\res\\img\\field\\Win.png", Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error loading bmpWin !");
+				ErrExit(eD2D);
+			}
+
+			for (int i = 0; i < 16; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\intro\\" };
+				wchar_t add[5]{ L"\0" };
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpIntro[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpIntro !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 11; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\evils\\flyer\\l\\" };
+				wchar_t add[5]{ L"\0" };
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpFlyerL[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpFlyerL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 11; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\evils\\flyer\\r\\" };
+				wchar_t add[5]{ L"\0" };
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpFlyerR[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpFlyerR !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 26; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\evils\\girl\\l\\" };
+				wchar_t add[5]{ L"\0" };
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpGirlL[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpGirlL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 26; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\evils\\girl\\r\\" };
+				wchar_t add[5]{ L"\0" };
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpGirlR[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpGirlR !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 120; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\evils\\soul\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"00");
+				else if (i < 100)wcscat_s(name, L"0");
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpSoul[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpSoul !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 4; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\evils\\zombie\\l\\" };
+				wchar_t add[5]{ L"\0" };
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpZombieL[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpZombieL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 4; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\evils\\zombie\\r\\" };
+				wchar_t add[5]{ L"\0" };
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpZombieR[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpZombieR !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 50; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\hero\\shoot\\l\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+				
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpHeroShootL[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpHeroShootL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 50; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\hero\\shoot\\r\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpHeroShootR[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpHeroShootR !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 32; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\hero\\stand\\l\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpHeroStandL[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpHeroStandL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 32; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\hero\\stand\\r\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpHeroStandR[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpHeroStandR !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 16; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\hero\\walk\\l\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpHeroWalkL[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpHeroWalkL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 16; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\hero\\walk\\r\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpHeroWalkR[i] = Load(name, Draw);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error loading bmpHeroWalkR !");
+					ErrExit(eD2D);
+				}
+			}
+
+		}
+
+		hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), 
+			reinterpret_cast<IUnknown**>(&iWriteFactory));
+		if (hr != S_OK)
+		{
+			LogErr(L"Error creating D2D1 Write Factory !");
+			ErrExit(eD2D);
+		}
+
+		if (iWriteFactory)
+		{
+			hr = iWriteFactory->CreateTextFormat(L"Copperplate Gothic", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK,
+				DWRITE_FONT_STYLE_OBLIQUE, DWRITE_FONT_STRETCH_NORMAL, 16.0f, L"", &nrmText);
+			hr = iWriteFactory->CreateTextFormat(L"Copperplate Gothic", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK,
+				DWRITE_FONT_STYLE_OBLIQUE, DWRITE_FONT_STRETCH_NORMAL, 24.0f, L"", &midText);
+			hr = iWriteFactory->CreateTextFormat(L"Copperplate Gothic", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK,
+				DWRITE_FONT_STYLE_OBLIQUE, DWRITE_FONT_STRETCH_NORMAL, 72.0f, L"", &bigText);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error creating D2D1 Write text formats !");
+				ErrExit(eD2D);
+			}
+		}
+	}
+
+	PlaySound(L".\\res\\snd\\intro.wav", NULL, SND_ASYNC);
+	for (int i = 0; i < 150; ++i)
+	{
+		Draw->BeginDraw();
+		Draw->DrawBitmap(bmpIntro[IntroFrame()], FullScreenRect);
+		Draw->DrawBitmap(bmpLogo, FullScreenRect);
+		Draw->EndDraw();
+	}
+	Draw->BeginDraw();
+	Draw->DrawBitmap(bmpIntro[IntroFrame()], FullScreenRect);
+	Draw->DrawBitmap(bmpLogo, FullScreenRect);
+	Draw->EndDraw();
+	PlaySound(L".\\res\\snd\\boom.wav", NULL, SND_SYNC);
+	Sleep(2000);
+}
 
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
@@ -300,7 +1064,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		ErrExit(eClass);
 	}
 
-
+	CreateResources();
 
 
 
