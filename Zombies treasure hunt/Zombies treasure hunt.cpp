@@ -153,8 +153,9 @@ dll::FIELD* Field{ nullptr };
 
 dll::HERO* Hero{ nullptr };
 
+dll::NATURE* Mountain{ nullptr };
 
-
+std::vector<dll::NATURE*> vTrees;
 
 /////////////////////////////////////////////////////
 
@@ -294,16 +295,128 @@ void InitGame()
 		Field = new dll::FIELD;
 	}
 	else Field = new dll::FIELD;
-	if (Hero)
+
+	if (Mountain)Mountain->Release();
+	bool ok{ false };
+	while (!ok)
 	{
-		Hero->Release();
-		Hero = dll::HERO::create(RandIt(0.0f, scr_width - 100.f), ground - 100.0f);
+		dll::NATURE* dummy{ dll::NATURE::create(static_cast<nature>(RandIt(3,4)),RandIt(0.0f,scr_width - 100.0f),
+			RandIt(sky,ground - 100.0f)) };
+		
+		ok = true;
+		
+		for (int row = 0; row < FIELD_ROWS; ++row)
+		{
+			for (int col = 0; col < FIELD_COLS; ++col)
+			{
+				if (Field->is_water_tile(row, col))
+				{
+					if (dll::Intersect(dummy->get_rect(), Field->get_tile_rect(row, col)))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!ok)break;
+		}
+
+		if (ok)Mountain = dummy;
+		else dummy->Release();
 	}
-	else Hero = dll::HERO::create(RandIt(0.0f, scr_width - 100.f), ground - 100.0f);
 
+	ok = false;
+	
+	if (!vTrees.empty())for (int i = 0; i < vTrees.size(); ++i)FreeMem(&vTrees[i]);
+	for (int i = 0; i < 8; ++i)
+	{
+		ok = false;
 
+		while (!ok)
+		{
+			dll::NATURE* dummy{ dll::NATURE::create(static_cast<nature>(RandIt(0,2)),RandIt(0.0f,scr_width - 50.0f),
+				RandIt(sky,ground - 50.0f)) };
 
+			ok = true;
 
+			for (int row = 0; row < FIELD_ROWS; ++row)
+			{
+				for (int col = 0; col < FIELD_COLS; ++col)
+				{
+					if (Field->is_water_tile(row, col))
+					{
+						if (dll::Intersect(dummy->get_rect(), Field->get_tile_rect(row, col)))
+						{
+							ok = false;
+							break;
+						}
+					}
+				}
+
+				if (!ok)break;
+			}
+
+			if (Mountain)
+			{
+				if (dll::Intersect(Mountain->get_rect(), dummy->get_rect()))ok = false;
+			}
+
+			if (ok)vTrees.push_back(dummy);
+			else dummy->Release();
+		}
+	}
+	
+	ok = false;
+
+	if (Hero)Hero->Release();
+	while (!ok)
+	{
+		dll::HERO* dummy = dll::HERO::create(RandIt(0.0f, scr_width - 100.f), ground - 100.0f);
+
+		ok = true;
+
+		for (int row = 0; row < FIELD_ROWS; ++row)
+		{
+			for (int col = 0; col < FIELD_COLS; ++col)
+			{
+				if (Field->is_water_tile(row, col))
+				{
+					if (dll::Intersect(dummy->get_rect(), Field->get_tile_rect(row, col)))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!ok)break;
+		}
+
+		if (Mountain)
+		{
+			if (dll::Intersect(dummy->get_rect(), Mountain->get_rect()))
+			{
+				ok = false;
+				break;
+			}
+		}
+
+		if (!vTrees.empty())
+		{
+			for (int i = 0; i < vTrees.size(); ++i)
+			{
+				if (dll::Intersect(dummy->get_rect(), vTrees[i]->get_rect()))
+				{
+					ok = false;
+					break;
+				}
+			}
+		}
+
+		if (ok)Hero = dummy;
+		else dummy->Release();
+	}
 
 }
 
@@ -1153,6 +1266,41 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					Resizer(bmpHeroShootL[frame], Hero->start.x, Hero->start.y));
 				else Draw->DrawBitmap(bmpHeroShootR[frame], Resizer(bmpHeroShootR[frame], Hero->start.x, Hero->start.y));
 				break;
+			}
+		}
+
+		if (Mountain)
+		{
+			switch (Mountain->type)
+			{
+			case nature::mountain1:
+				Draw->DrawBitmap(bmpMountain1, Mountain->get_rect());
+				break;
+
+			case nature::mountain2:
+				Draw->DrawBitmap(bmpMountain2, Mountain->get_rect());
+				break;
+			}
+		}
+
+		if (!vTrees.empty())
+		{
+			for (int i = 0; i < vTrees.size(); ++i)
+			{
+				switch (vTrees[i]->type)
+				{
+				case nature::tree1:
+					Draw->DrawBitmap(bmpTree1, vTrees[i]->get_rect());
+					break;
+
+				case nature::tree2:
+					Draw->DrawBitmap(bmpTree2, vTrees[i]->get_rect());
+					break;
+
+				case nature::tree3:
+					Draw->DrawBitmap(bmpTree3, vTrees[i]->get_rect());
+					break;
+				}
 			}
 		}
 
