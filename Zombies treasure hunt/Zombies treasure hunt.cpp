@@ -161,6 +161,8 @@ std::vector<dll::NATURE*> vTrees;
 
 std::vector<D2D1_RECT_F> vTombs;
 
+std::vector<D2D1_RECT_F> vChests;
+
 /////////////////////////////////////////////////////
 
 template<typename T>concept HasRelease = requires (T check)
@@ -490,6 +492,85 @@ void InitGame()
 			}
 
 			if (ok)vTombs.push_back(dummy);
+		}
+	}
+
+	vChests.clear();
+	for (int i = 0; i < 5; ++i)
+	{
+		ok = false;
+
+		while (!ok)
+		{
+			float sx = RandIt(0.0f, scr_width - 50.0f);
+			float sy = RandIt(sky, ground - 50.0f);
+
+			float ex = sx + 32.0f;
+			float ey = sy + 32.0f;
+
+			D2D1_RECT_F dummy{ sx, sy, ex, ey };
+
+			ok = true;
+
+			for (int row = 0; row < FIELD_ROWS; ++row)
+			{
+				for (int col = 0; col < FIELD_COLS; ++col)
+				{
+					if (Field->is_water_tile(row, col))
+					{
+						if (dll::Intersect(dummy, Field->get_tile_rect(row, col)))
+						{
+							ok = false;
+							break;
+						}
+					}
+				}
+
+				if (!ok)break;
+			}
+
+			if (Mountain)
+			{
+				if (dll::Intersect(Mountain->get_rect(), dummy))ok = false;
+			}
+
+			if (!vTrees.empty())
+			{
+				for (int i = 0; i < vTrees.size(); ++i)
+				{
+					if (dll::Intersect(dummy, vTrees[i]->get_rect()))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!vTombs.empty())
+			{
+				for (int i = 0; i < vTombs.size(); ++i)
+				{
+					if (dll::Intersect(dummy, vTombs[i]))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!vChests.empty())
+			{
+				for (int i = 0; i < vChests.size(); ++i)
+				{
+					if (dll::Intersect(dummy, vChests[i]))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (ok)vChests.push_back(dummy);
 		}
 	}
 
@@ -1390,6 +1471,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		if (!vTombs.empty())
 		{
 			for (int i = 0; i < vTombs.size(); ++i)Draw->DrawBitmap(bmpTomb, vTombs[i]);
+		}
+
+		if (!vChests.empty())
+		{
+			for (int i = 0; i < vChests.size(); ++i)Draw->DrawBitmap(bmpChest, vChests[i]);
 		}
 
 	////////////////////////////////////////////////////////////
