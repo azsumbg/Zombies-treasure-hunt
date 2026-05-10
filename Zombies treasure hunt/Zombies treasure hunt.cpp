@@ -96,6 +96,8 @@ ID2D1SolidColorBrush* txtBrush{ nullptr };
 ID2D1SolidColorBrush* inactBrush{ nullptr };
 ID2D1SolidColorBrush* hgltBrush{ nullptr };
 
+ID2D1SolidColorBrush* grayBrush{ nullptr };
+
 IDWriteFactory* iWriteFactory{ nullptr };
 IDWriteTextFormat* nrmText{ nullptr };
 IDWriteTextFormat* midText{ nullptr };
@@ -157,6 +159,8 @@ dll::NATURE* Mountain{ nullptr };
 
 std::vector<dll::NATURE*> vTrees;
 
+std::vector<D2D1_RECT_F> vTombs;
+
 /////////////////////////////////////////////////////
 
 template<typename T>concept HasRelease = requires (T check)
@@ -193,6 +197,8 @@ void ReleaseResources()
 	if (!FreeMem(&statBrush))LogErr(L"Error unloading D2D1 statBrush !");
 	if (!FreeMem(&txtBrush))LogErr(L"Error unloading D2D1 txtBrush !");
 	if (!FreeMem(&hgltBrush))LogErr(L"Error unloading D2D1 hgltBrush !");
+
+	if (!FreeMem(&grayBrush))LogErr(L"Error unloading D2D1 grayBrush !");
 
 	if (!FreeMem(&iWriteFactory))LogErr(L"Error unloading D2D1 iWriteFactory !");
 	if (!FreeMem(&nrmText))LogErr(L"Error unloading D2D1 nrmText !");
@@ -418,6 +424,75 @@ void InitGame()
 		else dummy->Release();
 	}
 
+	ok = false;
+
+	vTombs.clear();
+	for (int i = 0; i < 8; ++i)
+	{
+		ok = false;
+
+		while (!ok)
+		{
+			float sx = RandIt(0.0f, scr_width - 50.0f);
+			float sy = RandIt(sky, ground - 50.0f);
+
+			float ex = sx + 60.0f;
+			float ey = sy + 59.0f;
+
+			D2D1_RECT_F dummy{ sx, sy, ex, ey };
+
+			ok = true;
+
+			for (int row = 0; row < FIELD_ROWS; ++row)
+			{
+				for (int col = 0; col < FIELD_COLS; ++col)
+				{
+					if (Field->is_water_tile(row, col))
+					{
+						if (dll::Intersect(dummy, Field->get_tile_rect(row, col)))
+						{
+							ok = false;
+							break;
+						}
+					}
+				}
+
+				if (!ok)break;
+			}
+
+			if (Mountain)
+			{
+				if (dll::Intersect(Mountain->get_rect(), dummy))ok = false;
+			}
+
+			if (!vTrees.empty())
+			{
+				for (int i = 0; i < vTrees.size(); ++i)
+				{
+					if (dll::Intersect(dummy, vTrees[i]->get_rect()))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!vTombs.empty())
+			{
+				for (int i = 0; i < vTombs.size(); ++i)
+				{
+					if (dll::Intersect(dummy, vTombs[i]))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (ok)vTombs.push_back(dummy);
+		}
+	}
+
 }
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
@@ -480,7 +555,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 	case WM_CLOSE:
 		pause = true;
 		if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
-		if (MessageBox(hwnd, L"Ако излезеш, губиш играта !\n\nНаистина ли излизаш ?", L"Изход !",
+		if (MessageBox(hwnd, L"Ако излезеш, губиш играта !\n\n Наистина ли излизаш ?", L"Изход !",
 			MB_YESNO | MB_APPLMODAL | MB_ICONEXCLAMATION) == IDNO)
 		{
 			pause = false;
@@ -731,6 +806,8 @@ void CreateResources()
 			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Lime), &txtBrush);
 			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Gold), &hgltBrush);
 			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::PowderBlue), &inactBrush);
+
+			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &grayBrush); 
 
 			if (hr != S_OK)
 			{
@@ -1267,6 +1344,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 				else Draw->DrawBitmap(bmpHeroShootR[frame], Resizer(bmpHeroShootR[frame], Hero->start.x, Hero->start.y));
 				break;
 			}
+
+			float life_ratio = (float)(Hero->lifes * (80.0f / 200.0f));
+			
+			Draw->DrawLine(D2D1::Point2F(Hero->start.x, Hero->end.y + 6.0f),
+				D2D1::Point2F(Hero->end.x, Hero->end.y + 6.0f), grayBrush, 5.0f);
+			Draw->DrawLine(D2D1::Point2F(Hero->start.x, Hero->end.y + 6.1f),
+				D2D1::Point2F(Hero->start.x + life_ratio, Hero->end.y + 6.1f), txtBrush, 2.0f);
 		}
 
 		if (Mountain)
@@ -1302,6 +1386,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					break;
 				}
 			}
+		}
+
+		if (!vTombs.empty())
+		{
+			for (int i = 0; i < vTombs.size(); ++i)Draw->DrawBitmap(bmpTomb, vTombs[i]);
 		}
 
 	////////////////////////////////////////////////////////////
