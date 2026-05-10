@@ -140,8 +140,8 @@ ID2D1Bitmap* bmpSoul[120]{ nullptr };
 ID2D1Bitmap* bmpZombieL[4]{ nullptr };
 ID2D1Bitmap* bmpZombieR[4]{ nullptr };
 
-ID2D1Bitmap* bmpHeroShootL[50]{ nullptr };
-ID2D1Bitmap* bmpHeroShootR[50]{ nullptr };
+ID2D1Bitmap* bmpHeroShootL[47]{ nullptr };
+ID2D1Bitmap* bmpHeroShootR[47]{ nullptr };
 ID2D1Bitmap* bmpHeroStandL[32]{ nullptr };
 ID2D1Bitmap* bmpHeroStandR[32]{ nullptr };
 ID2D1Bitmap* bmpHeroWalkL[16]{ nullptr };
@@ -242,8 +242,8 @@ void ReleaseResources()
 	for (int i = 0; i < 4; ++i)if (!FreeMem(&bmpZombieL[i]))LogErr(L"Error unloading D2D1 bmpZombieL !");
 	for (int i = 0; i < 4; ++i)if (!FreeMem(&bmpZombieR[i]))LogErr(L"Error unloading D2D1 bmpZombieR !");
 
-	for (int i = 0; i < 50; ++i)if (!FreeMem(&bmpHeroShootL[i]))LogErr(L"Error unloading D2D1 bmpHeroShootL !");
-	for (int i = 0; i < 50; ++i)if (!FreeMem(&bmpHeroShootR[i]))LogErr(L"Error unloading D2D1 bmpHeroShootR !");
+	for (int i = 0; i < 47; ++i)if (!FreeMem(&bmpHeroShootL[i]))LogErr(L"Error unloading D2D1 bmpHeroShootL !");
+	for (int i = 0; i < 47; ++i)if (!FreeMem(&bmpHeroShootR[i]))LogErr(L"Error unloading D2D1 bmpHeroShootR !");
 	for (int i = 0; i < 32; ++i)if (!FreeMem(&bmpHeroStandL[i]))LogErr(L"Error unloading D2D1 bmpHeroStandL !");
 	for (int i = 0; i < 32; ++i)if (!FreeMem(&bmpHeroStandR[i]))LogErr(L"Error unloading D2D1 bmpHeroStandR !");
 	for (int i = 0; i < 16; ++i)if (!FreeMem(&bmpHeroWalkL[i]))LogErr(L"Error unloading D2D1 bmpHeroWalkL !");
@@ -955,7 +955,7 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpIntro[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpIntro[i])
 				{
 					LogErr(L"Error loading bmpIntro !");
 					ErrExit(eD2D);
@@ -973,7 +973,7 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpFlyerL[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpFlyerL[i])
 				{
 					LogErr(L"Error loading bmpFlyerL !");
 					ErrExit(eD2D);
@@ -990,7 +990,7 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpFlyerR[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpFlyerR[i])
 				{
 					LogErr(L"Error loading bmpFlyerR !");
 					ErrExit(eD2D);
@@ -1008,7 +1008,7 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpGirlL[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpGirlL[i])
 				{
 					LogErr(L"Error loading bmpGirlL !");
 					ErrExit(eD2D);
@@ -1025,7 +1025,7 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpGirlR[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpGirlR[i])
 				{
 					LogErr(L"Error loading bmpGirlR !");
 					ErrExit(eD2D);
@@ -1046,7 +1046,7 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpSoul[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpSoul[i])
 				{
 					LogErr(L"Error loading bmpSoul !");
 					ErrExit(eD2D);
@@ -1064,7 +1064,7 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpZombieL[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpZombieL[i])
 				{
 					LogErr(L"Error loading bmpZombieL !");
 					ErrExit(eD2D);
@@ -1081,14 +1081,14 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpZombieR[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpZombieR[i])
 				{
 					LogErr(L"Error loading bmpZombieR !");
 					ErrExit(eD2D);
 				}
 			}
 
-			for (int i = 0; i < 50; ++i)
+			for (int i = 0; i < 47; ++i)
 			{
 				wchar_t name[100]{ L".\\res\\img\\hero\\shoot\\l\\0" };
 				wchar_t add[5]{ L"\0" };
@@ -1101,13 +1101,13 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpHeroShootL[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpHeroShootL[i])
 				{
 					LogErr(L"Error loading bmpHeroShootL !");
 					ErrExit(eD2D);
 				}
 			}
-			for (int i = 0; i < 50; ++i)
+			for (int i = 0; i < 47; ++i)
 			{
 				wchar_t name[100]{ L".\\res\\img\\hero\\shoot\\r\\0" };
 				wchar_t add[5]{ L"\0" };
@@ -1120,7 +1120,7 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpHeroShootR[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpHeroShootR[i])
 				{
 					LogErr(L"Error loading bmpHeroShootR !");
 					ErrExit(eD2D);
@@ -1140,7 +1140,7 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpHeroStandL[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpHeroStandL[i])
 				{
 					LogErr(L"Error loading bmpHeroStandL !");
 					ErrExit(eD2D);
@@ -1159,7 +1159,7 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpHeroStandR[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpHeroStandR[i])
 				{
 					LogErr(L"Error loading bmpHeroStandR !");
 					ErrExit(eD2D);
@@ -1179,7 +1179,7 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpHeroWalkL[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpHeroWalkL[i])
 				{
 					LogErr(L"Error loading bmpHeroWalkL !");
 					ErrExit(eD2D);
@@ -1198,13 +1198,12 @@ void CreateResources()
 				wcscat_s(name, L".png");
 
 				bmpHeroWalkR[i] = Load(name, Draw);
-				if (hr != S_OK)
+				if (!bmpHeroWalkR[i])
 				{
 					LogErr(L"Error loading bmpHeroWalkR !");
 					ErrExit(eD2D);
 				}
 			}
-
 		}
 
 		hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), 
