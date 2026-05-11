@@ -774,8 +774,13 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 		}
 		break;
 
-
-
+	case WM_RBUTTONDOWN:
+		if (Hero)
+		{
+			Hero->set_path((float)(LOWORD(lParam)* x_scale), (float)(HIWORD(lParam)* y_scale));
+			Hero->set_action(action::walk);
+		}
+		break;
 
 	default: return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
 	}
@@ -1360,7 +1365,64 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 	/////////////////////////////////////////////////////////////////
 
+		if (Hero)
+		{
+			if (Hero->get_action() == action::walk)
+			{
+				float tx = Hero->start.x;
+				float ty = Hero->start.y;
 
+				if (!Hero->move(speed))Hero->set_action(action::stand);
+				else
+				{
+					if (Mountain)
+					{
+						if (dll::Intersect(Mountain->get_rect(), Hero->get_rect()))
+						{
+							Hero->start.x = tx;
+							Hero->start.y = ty;
+							Hero->set_edges();
+							Hero->set_action(action::stand);
+						}
+					}
+
+					for (int row = 0; row < FIELD_ROWS; ++row)
+					{
+						for (int col = 0; col < FIELD_COLS; ++col)
+						{
+							if (Field->is_water_tile(row, col))
+							{
+								if (dll::Intersect(Field->get_tile_rect(row, col), Hero->get_rect()))
+								{
+									Hero->start.x = tx;
+									Hero->start.y = ty;
+									Hero->set_edges();
+									Hero->set_action(action::stand);
+									break;
+								}
+							}
+						}
+
+						if (Hero->get_action() == action::stand)break;
+					}
+
+					if (!vTrees.empty())
+					{
+						for (int i = 0; i < vTrees.size(); ++i)
+						{
+							if (dll::Intersect(Hero->get_rect(), vTrees[i]->get_rect()))
+							{
+								Hero->start.x = tx;
+								Hero->start.y = ty;
+								Hero->set_edges();
+								Hero->set_action(action::stand);
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
 
 
 

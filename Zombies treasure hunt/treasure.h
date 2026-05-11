@@ -591,6 +591,8 @@ namespace dll
 		void set_action(action new_action);
 		void Release()override;
 
+		bool move(float gear)override;
+
 		static HERO* create(float sx, float sy);
 	};
 
