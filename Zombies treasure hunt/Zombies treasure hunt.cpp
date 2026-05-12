@@ -163,6 +163,8 @@ std::vector<D2D1_RECT_F> vTombs;
 
 std::vector<D2D1_RECT_F> vChests;
 
+std::vector<dll::SHOT*>vHeroShots;
+
 /////////////////////////////////////////////////////
 
 template<typename T>concept HasRelease = requires (T check)
@@ -429,7 +431,7 @@ void InitGame()
 	ok = false;
 
 	vTombs.clear();
-	for (int i = 0; i < 8; ++i)
+	for (int i = 0; i < 5; ++i)
 	{
 		ok = false;
 
@@ -573,6 +575,9 @@ void InitGame()
 			if (ok)vChests.push_back(dummy);
 		}
 	}
+
+	if (!vHeroShots.empty())for (int i = 0; i < vHeroShots.size(); ++i)FreeMem(&vHeroShots[i]);
+	vHeroShots.clear();
 
 }
 
@@ -771,6 +776,15 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 			SendMessage(hwnd, WM_CLOSE, NULL, NULL);
 			break;
 
+		}
+		break;
+
+	case WM_LBUTTONDOWN:
+		if (Hero)
+		{
+			vHeroShots.push_back(dll::SHOT::create(Hero->center.x, Hero->center.y, (float)(LOWORD(lParam)* x_scale),
+				(float)(HIWORD(lParam)* x_scale), Hero->damage));
+			if (sound)mciSendString(L"play .\\res\\snd\\shoot.wav", NULL, NULL, NULL);
 		}
 		break;
 
@@ -1424,6 +1438,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
+		if (!vHeroShots.empty())
+		{
+			for (int i = 0; i < vHeroShots.size(); ++i)
+			{
+				if (!vHeroShots[i]->move(speed))
+				{
+					vHeroShots[i]->Release();
+					vHeroShots.erase(vHeroShots.begin() + i);
+					break;
+				}
+			}
+		}
 
 
 	// DRAW THINGS **************************************************
@@ -1539,6 +1565,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		{
 			for (int i = 0; i < vChests.size(); ++i)Draw->DrawBitmap(bmpChest, vChests[i]);
 		}
+
+		if (!vHeroShots.empty())
+		{
+			for (int i = 0; i < vHeroShots.size(); ++i)
+			{
+				Draw->DrawBitmap(bmpBullet, vHeroShots[i]->get_rect());
+			}
+		}
+
 
 	////////////////////////////////////////////////////////////
 	
