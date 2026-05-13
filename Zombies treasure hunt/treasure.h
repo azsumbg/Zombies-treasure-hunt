@@ -44,16 +44,16 @@ struct TREASURE_API FADE
 
 	FPOINT position{};
 
-	int delay{ 80 };
+	int delay{ 20 };
 
-	float opacity = 1.0f;
-
+	float opacity{ 1.0f };
+	
 	float get_opacity()
 	{
 		--delay;
-		if (delay == 0)
+		if (delay <= 0)
 		{
-			delay = 80;
+			delay = 20;
 			opacity -= 0.1f;
 		}
 		return opacity;

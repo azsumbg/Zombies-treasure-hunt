@@ -326,7 +326,9 @@ void InitGame()
 	vPotions.clear();
 
 	if (Mountain)Mountain->Release();
+	
 	bool ok{ false };
+
 	while (!ok)
 	{
 		dll::NATURE* dummy{ dll::NATURE::create(static_cast<nature>(RandIt(3,4)),RandIt(0.0f,scr_width - 100.0f),
@@ -358,7 +360,7 @@ void InitGame()
 	ok = false;
 	
 	if (!vTrees.empty())for (int i = 0; i < vTrees.size(); ++i)FreeMem(&vTrees[i]);
-	for (int i = 0; i < 8; ++i)
+	for (int i = 0; i < 7; ++i)
 	{
 		ok = false;
 
@@ -516,6 +518,8 @@ void InitGame()
 		}
 	}
 
+	ok = false;
+
 	vChests.clear();
 	for (int i = 0; i < 5; ++i)
 	{
@@ -608,8 +612,6 @@ void InitGame()
 		float ey = sy + 95.0f;
 
 		D2D1_RECT_F dummy{ sx, sy, ex, ey };
-
-		ok = true;
 
 		for (int row = 0; row < FIELD_ROWS; ++row)
 		{
@@ -1582,12 +1584,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 				if (doing != action::shoot && doing != action::stand)
 				{
-					if (!(*evil)->move(speed))
+					if (doing == action::bumped)(*evil)->move(speed);
+					else if (!(*evil)->move(speed))
 					{
-						if ((*evil)->start.y <= sky)(*evil)->set_path((*evil)->center.x, ground);
-						else if ((*evil)->end.y >= sky)(*evil)->set_path((*evil)->center.x, sky);
-						else if ((*evil)->start.x <= 0)(*evil)->set_path(scr_width, (*evil)->center.x);
-						else if ((*evil)->end.x >= scr_width)(*evil)->set_path(0, (*evil)->center.x);
+						if ((*evil)->start.y <= sky)
+						{
+							if ((*evil)->start.x <= 0)(*evil)->set_path(scr_width, ground);
+							else if ((*evil)->end.x >= scr_width)(*evil)->set_path(0, ground);
+							else (*evil)->set_path((*evil)->center.x, ground);
+						}
+						else if ((*evil)->end.y >= ground)
+						{
+							if ((*evil)->start.x <= 0)(*evil)->set_path(scr_width, sky);
+							else if ((*evil)->end.x >= scr_width)(*evil)->set_path(0, sky);
+							else (*evil)->set_path((*evil)->center.x, sky);
+						}
+						else if ((*evil)->start.x <= 0 || (*evil)->get_target_x() <= (*evil)->center.x)
+							(*evil)->set_path(scr_width, (*evil)->center.y);
+						else if ((*evil)->end.x >= scr_width || (*evil)->get_target_x() >= (*evil)->center.x)
+							(*evil)->set_path(0, (*evil)->center.y);	
 					}
 				}
 			}
@@ -1612,15 +1627,74 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 						if (a_chest.top - 50.0f >= 0)a_chest.top -= 50.0f;
 						else a_chest.top += 50.0f;
 
-						if (asset == assets::life)
+						bool is_ok = false;
+						
+						while (!is_ok)
 						{
-							a_chest.right = a_chest.left + 32.0f;
-							a_chest.bottom = a_chest.top + 32.0f;
-						}
-						else
-						{
-							a_chest.right = a_chest.left + 50.0f;
-							a_chest.bottom = a_chest.top + 39.0f;
+							is_ok = true;
+
+							for (int row = 0; row < FIELD_ROWS; ++row)
+							{
+								for (int col = 0; col < FIELD_COLS; ++col)
+								{
+									if (Field->is_water_tile(row, col))
+									{
+										if (dll::Intersect(a_chest, Field->get_tile_rect(row, col)))
+										{
+											is_ok = false;
+											if (a_chest.left - 50.0f >= 0)a_chest.left -= 50.0f;
+											else a_chest.left += 50.0f;
+											if (a_chest.top - 50.0f >= 0)a_chest.top -= 50.0f;
+											else a_chest.top += 50.0f;
+											break;
+										}
+									}
+								}
+
+								if (!is_ok)break;
+							}
+
+							if (Mountain)
+							{
+								if (dll::Intersect(Mountain->get_rect(), a_chest))
+								{
+									if (a_chest.left - 50.0f >= 0)a_chest.left -= 50.0f;
+									else a_chest.left += 50.0f;
+									if (a_chest.top - 50.0f >= 0)a_chest.top -= 50.0f;
+									else a_chest.top += 50.0f;
+									is_ok = false;
+								}
+							}
+
+							if (!vTrees.empty())
+							{
+								for (int i = 0; i < vTrees.size(); ++i)
+								{
+									if (dll::Intersect(a_chest, vTrees[i]->get_rect()))
+									{
+										if (a_chest.left - 50.0f >= 0)a_chest.left -= 50.0f;
+										else a_chest.left += 50.0f;
+										if (a_chest.top - 50.0f >= 0)a_chest.top -= 50.0f;
+										else a_chest.top += 50.0f;
+										is_ok = false;
+										break;
+									}
+								}
+							}
+
+							if (is_ok)
+							{
+								if (asset == assets::life)
+								{
+									a_chest.right = a_chest.left + 32.0f;
+									a_chest.bottom = a_chest.top + 32.0f;
+								}
+								else
+								{
+									a_chest.right = a_chest.left + 50.0f;
+									a_chest.bottom = a_chest.top + 39.0f;
+								}
+							}
 						}
 					}
 					
@@ -1658,26 +1732,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	// DRAW THINGS **************************************************
 
 		Draw->BeginDraw();
-
-		if (nrmText && statBrush && txtBrush && hgltBrush && inactBrush && b1Bckg && b2Bckg && b3Bckg)
-		{
-			Draw->FillRectangle(D2D1::RectF(0, 0, scr_width, 50.0f), statBrush);
-			Draw->FillRoundedRectangle(D2D1::RoundedRect(b1Rect, 10.0f, 15.0f), b1Bckg);
-			Draw->FillRoundedRectangle(D2D1::RoundedRect(b2Rect, 10.0f, 15.0f), b2Bckg);
-			Draw->FillRoundedRectangle(D2D1::RoundedRect(b3Rect, 10.0f, 15.0f), b3Bckg);
-			Draw->FillRectangle(D2D1::RectF(0, ground, scr_width, scr_height), statBrush);
-
-			if (name_set)Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, inactBrush);
-			else
-			{
-				if (b1Hglt)Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, hgltBrush);
-				else Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, txtBrush);
-			}
-			if (b2Hglt)Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmText, b2TxtRect, hgltBrush);
-			else Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmText, b2TxtRect, txtBrush);
-			if (b3Hglt)Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtRect, hgltBrush);
-			else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtRect, txtBrush);
-		}
 
 		if (Field)
 		{
@@ -1817,7 +1871,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		{
 			for (std::vector<FADE>::iterator icon = vAssetIcons.begin(); icon < vAssetIcons.end(); ++icon)
 			{
-				int an_opacity = icon->get_opacity();
+				float an_opacity = icon->get_opacity();
+
 				switch (icon->type)
 				{
 				case assets::gold:
@@ -1844,8 +1899,33 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
+		if (!vMaps.empty())for (int i = 0; i < vMaps.size(); ++i)Draw->DrawBitmap(bmpMap, D2D1::RectF(vMaps[i].left, vMaps[i].top,
+			vMaps[i].right, vMaps[i].bottom));
+
+		if (!vPotions.empty())for (int i = 0; i < vPotions.size(); ++i)Draw->DrawBitmap(bmpPotion, 
+			D2D1::RectF(vPotions[i].left, vPotions[i].top, vPotions[i].right, vPotions[i].bottom));
+
 	////////////////////////////////////////////////////////////
-	
+
+		if (nrmText && statBrush && txtBrush && hgltBrush && inactBrush && b1Bckg && b2Bckg && b3Bckg)
+		{
+			Draw->FillRectangle(D2D1::RectF(0, 0, scr_width, 50.0f), statBrush);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b1Rect, 10.0f, 15.0f), b1Bckg);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b2Rect, 10.0f, 15.0f), b2Bckg);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b3Rect, 10.0f, 15.0f), b3Bckg);
+			Draw->FillRectangle(D2D1::RectF(0, ground, scr_width, scr_height), statBrush);
+
+			if (name_set)Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, inactBrush);
+			else
+			{
+				if (b1Hglt)Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, hgltBrush);
+				else Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, txtBrush);
+			}
+			if (b2Hglt)Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmText, b2TxtRect, hgltBrush);
+			else Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmText, b2TxtRect, txtBrush);
+			if (b3Hglt)Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtRect, hgltBrush);
+			else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtRect, txtBrush);
+		}
 		Draw->EndDraw();
 	}
 
