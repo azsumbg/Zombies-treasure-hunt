@@ -153,6 +153,8 @@ dll::RANDIT RandIt{};
 
 dll::FIELD* Field{ nullptr };
 
+D2D1_RECT_F TresureMark{};
+
 dll::HERO* Hero{ nullptr };
 
 dll::NATURE* Mountain{ nullptr };
@@ -168,6 +170,12 @@ std::vector<dll::SHOT*>vHeroShots;
 std::vector<dll::EVIL*>vEvils;
 
 dll::BAG<D2D1_RECT_F>ObstBag;
+
+std::vector<FADE>vAssetIcons;
+
+std::vector<D2D1_RECT_F> vMaps;
+
+std::vector<D2D1_RECT_F> vPotions;
 
 /////////////////////////////////////////////////////
 
@@ -311,6 +319,11 @@ void InitGame()
 		Field = new dll::FIELD;
 	}
 	else Field = new dll::FIELD;
+
+	vAssetIcons.clear();
+
+	vMaps.clear();
+	vPotions.clear();
 
 	if (Mountain)Mountain->Release();
 	bool ok{ false };
@@ -580,6 +593,71 @@ void InitGame()
 
 			if (ok)vChests.push_back(dummy);
 		}
+	}
+
+	ok = false;
+
+	while (!ok)
+	{
+		ok = true;
+
+		float sx = RandIt(0.0f, scr_width - 50.0f);
+		float sy = RandIt(sky, ground - 50.0f);
+
+		float ex = sx + 100.0f;
+		float ey = sy + 95.0f;
+
+		D2D1_RECT_F dummy{ sx, sy, ex, ey };
+
+		ok = true;
+
+		for (int row = 0; row < FIELD_ROWS; ++row)
+		{
+			for (int col = 0; col < FIELD_COLS; ++col)
+			{
+				if (Field->is_water_tile(row, col))
+				{
+					if (dll::Intersect(dummy, Field->get_tile_rect(row, col)))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!ok)break;
+		}
+
+		if (Mountain)
+		{
+			if (dll::Intersect(Mountain->get_rect(), dummy))ok = false;
+		}
+
+		if (!vTrees.empty())
+		{
+			for (int i = 0; i < vTrees.size(); ++i)
+			{
+				if (dll::Intersect(dummy, vTrees[i]->get_rect()))
+				{
+					ok = false;
+					break;
+				}
+			}
+		}
+
+		if (!vTombs.empty())
+		{
+			for (int i = 0; i < vTombs.size(); ++i)
+			{
+				if (dll::Intersect(dummy, vTombs[i]))
+				{
+					ok = false;
+					break;
+				}
+			}
+		}
+
+		if (ok)TresureMark = dummy;
 	}
 
 	if (!vHeroShots.empty())for (int i = 0; i < vHeroShots.size(); ++i)FreeMem(&vHeroShots[i]);
@@ -1515,6 +1593,67 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
+		if (Hero && !vChests.empty())
+		{
+			for (std::vector<D2D1_RECT_F>::iterator chest = vChests.begin(); chest < vChests.end(); ++chest)
+			{
+				D2D1_RECT_F a_chest{ chest->left, chest->top, chest->right, chest->bottom };
+				
+				if (dll::Intersect(Hero->get_rect(), a_chest))
+				{
+					assets asset{ static_cast<assets>(RandIt(0,4)) };
+
+					if (asset != assets::life && asset != assets::map)
+						vAssetIcons.push_back(FADE{ asset, FPOINT{a_chest.left,a_chest.top} });
+					else
+					{
+						if (a_chest.left - 50.0f >= 0)a_chest.left -= 50.0f;
+						else a_chest.left += 50.0f;
+						if (a_chest.top - 50.0f >= 0)a_chest.top -= 50.0f;
+						else a_chest.top += 50.0f;
+
+						if (asset == assets::life)
+						{
+							a_chest.right = a_chest.left + 32.0f;
+							a_chest.bottom = a_chest.top + 32.0f;
+						}
+						else
+						{
+							a_chest.right = a_chest.left + 50.0f;
+							a_chest.bottom = a_chest.top + 39.0f;
+						}
+					}
+					
+					vChests.erase(chest);
+					
+					switch (asset)
+					{
+					case assets::gold:
+						score += 50;
+						break;
+
+					case assets::armor:
+						Hero->armor++;
+						break;
+
+					case assets::gun:
+						Hero->damage++;
+						break;
+
+					case assets::map:
+						vMaps.push_back(a_chest);
+						break;
+
+					case assets::life:
+						vPotions.push_back(a_chest);
+						break;
+					}
+
+					break;
+				}
+			}
+		}
+
 
 	// DRAW THINGS **************************************************
 
@@ -1669,6 +1808,37 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 						vEvils[i]->start.x, vEvils[i]->start.y));
 					else Draw->DrawBitmap(bmpGirlR[frame], Resizer(bmpGirlR[frame],
 						vEvils[i]->start.x, vEvils[i]->start.y));
+					break;
+				}
+			}
+		}
+
+		if (!vAssetIcons.empty())
+		{
+			for (std::vector<FADE>::iterator icon = vAssetIcons.begin(); icon < vAssetIcons.end(); ++icon)
+			{
+				int an_opacity = icon->get_opacity();
+				switch (icon->type)
+				{
+				case assets::gold:
+					Draw->DrawBitmap(bmpIconGold, D2D1::RectF(icon->position.x - 16.0f, icon->position.y - 16.0f,
+						icon->position.x + 16.0f, icon->position.y + 16.0f), an_opacity);
+					break;
+
+				case assets::gun:
+					Draw->DrawBitmap(bmpIconGun, D2D1::RectF(icon->position.x - 16.0f, icon->position.y - 16.0f,
+						icon->position.x + 16.0f, icon->position.y + 16.0f), an_opacity);
+					break;
+
+				case assets::armor:
+					Draw->DrawBitmap(bmpIconArmor, D2D1::RectF(icon->position.x - 16.0f, icon->position.y - 16.0f,
+						icon->position.x + 16.0f, icon->position.y + 16.0f), an_opacity);
+					break;
+				}
+
+				if (an_opacity <= 0)
+				{
+					vAssetIcons.erase(icon);
 					break;
 				}
 			}
