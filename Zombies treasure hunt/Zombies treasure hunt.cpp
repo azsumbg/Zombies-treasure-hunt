@@ -165,6 +165,10 @@ std::vector<D2D1_RECT_F> vChests;
 
 std::vector<dll::SHOT*>vHeroShots;
 
+std::vector<dll::EVIL*>vEvils;
+
+dll::BAG<D2D1_RECT_F>ObstBag;
+
 /////////////////////////////////////////////////////
 
 template<typename T>concept HasRelease = requires (T check)
@@ -298,6 +302,8 @@ void InitGame()
 	treasure_found = false;
 
 	map_pieces = 0;
+
+	ObstBag.clear();
 
 	if (Field)
 	{
@@ -578,6 +584,23 @@ void InitGame()
 
 	if (!vHeroShots.empty())for (int i = 0; i < vHeroShots.size(); ++i)FreeMem(&vHeroShots[i]);
 	vHeroShots.clear();
+
+	if (!vEvils.empty())for (int i = 0; i < vEvils.size(); ++i)FreeMem(&vEvils[i]);
+	vEvils.clear();
+
+	// Obstacles BAG /////////////////////////////////////////////////
+
+	for (int row = 0; row < FIELD_ROWS; ++row)
+	{
+		for (int col = 0; col < FIELD_COLS; ++col)
+		{
+			if (Field->is_water_tile(row, col))ObstBag.push_back(Field->get_tile_rect(row, col));
+		}
+	}
+
+	ObstBag.push_back(Mountain->get_rect());
+
+	for (int i = 0; i < vTrees.size(); ++i)ObstBag.push_back(vTrees[i]->get_rect());
 
 }
 
@@ -1451,6 +1474,47 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
+		if (!vTombs.empty() && RandIt(0, 600) == 66)
+		{
+			int rand_tomb{ RandIt(0, (int)(vTombs.size() - 1)) };
+
+			float tex{ 0 };
+			float tey{ ground - 100.0f };
+
+			if (vTombs[rand_tomb].left > scr_width / 2.0f)tex = scr_width - 100.0f;
+			if (vTombs[rand_tomb].top < scr_height / 2.0f)tey = sky;
+			
+			vEvils.push_back(dll::EVIL::create(static_cast<moveables>(RandIt(0, 3)), vTombs[rand_tomb].left + 30.0f,
+				vTombs[rand_tomb].top + 30.0f, tex, tey));
+		}
+
+		if (!vEvils.empty() && Hero)
+		{
+			for (std::vector<dll::EVIL*>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
+			{
+				dll::BAG<FPOINT>ChestBag;
+
+				if (!vChests.empty())
+				{
+					for (int i = 0; i < vChests.size(); ++i)
+						ChestBag.push_back(FPOINT{ vChests[i].left + 16.0f, vChests[i].top + 16.0f });
+				}
+
+				action doing = dll::AIMove(*(*evil), ObstBag, ChestBag, Hero->center);
+
+				if (doing != action::shoot && doing != action::stand)
+				{
+					if (!(*evil)->move(speed))
+					{
+						if ((*evil)->start.y <= sky)(*evil)->set_path((*evil)->center.x, ground);
+						else if ((*evil)->end.y >= sky)(*evil)->set_path((*evil)->center.x, sky);
+						else if ((*evil)->start.x <= 0)(*evil)->set_path(scr_width, (*evil)->center.x);
+						else if ((*evil)->end.x >= scr_width)(*evil)->set_path(0, (*evil)->center.x);
+					}
+				}
+			}
+		}
+
 
 	// DRAW THINGS **************************************************
 
@@ -1574,6 +1638,41 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
+		if (!vEvils.empty())
+		{
+			for (int i = 0; i < vEvils.size(); ++i)
+			{
+				int frame = vEvils[i]->get_frame();
+
+				switch (vEvils[i]->type)
+				{
+				case moveables::soul:
+					Draw->DrawBitmap(bmpSoul[frame], Resizer(bmpSoul[frame], vEvils[i]->start.x, vEvils[i]->start.y));
+					break;
+
+				case moveables::flyer:
+					if (vEvils[i]->dir == dirs::left)Draw->DrawBitmap(bmpFlyerL[frame], Resizer(bmpFlyerL[frame],
+						vEvils[i]->start.x, vEvils[i]->start.y));
+					else Draw->DrawBitmap(bmpFlyerR[frame], Resizer(bmpFlyerR[frame],
+						vEvils[i]->start.x, vEvils[i]->start.y));
+					break;
+
+				case moveables::zombie:
+					if (vEvils[i]->dir == dirs::left)Draw->DrawBitmap(bmpZombieL[frame], Resizer(bmpZombieL[frame],
+						vEvils[i]->start.x, vEvils[i]->start.y));
+					else Draw->DrawBitmap(bmpZombieR[frame], Resizer(bmpZombieR[frame],
+						vEvils[i]->start.x, vEvils[i]->start.y));
+					break;
+
+				case moveables::girl:
+					if (vEvils[i]->dir == dirs::left)Draw->DrawBitmap(bmpGirlL[frame], Resizer(bmpGirlL[frame],
+						vEvils[i]->start.x, vEvils[i]->start.y));
+					else Draw->DrawBitmap(bmpGirlR[frame], Resizer(bmpGirlR[frame],
+						vEvils[i]->start.x, vEvils[i]->start.y));
+					break;
+				}
+			}
+		}
 
 	////////////////////////////////////////////////////////////
 	
