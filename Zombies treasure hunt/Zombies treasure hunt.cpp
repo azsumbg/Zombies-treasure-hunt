@@ -152,7 +152,7 @@ dll::RANDIT RandIt{};
 
 dll::FIELD* Field{ nullptr };
 
-D2D1_RECT_F TresureMark{};
+D2D1_RECT_F TreasureMark{};
 
 dll::HERO* Hero{ nullptr };
 
@@ -663,7 +663,7 @@ void InitGame()
 			}
 		}
 
-		if (ok)TresureMark = dummy;
+		if (ok)TreasureMark = dummy;
 	}
 
 	if (!vHeroShots.empty())for (int i = 0; i < vHeroShots.size(); ++i)FreeMem(&vHeroShots[i]);
@@ -1589,7 +1589,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 				action doing = dll::AIMove(*(*evil), ObstBag, ChestBag, Hero->center);
 
-				if (doing != action::shoot && doing != action::stand)
+				if (doing != action::shoot && doing != action::stand && doing != action::patrol)
 				{
 					if (doing == action::bumped)(*evil)->move(speed);
 					else if (!(*evil)->move(speed))
@@ -1609,7 +1609,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 						else if ((*evil)->start.x <= 0 || (*evil)->get_target_x() <= (*evil)->center.x)
 							(*evil)->set_path(scr_width, (*evil)->center.y);
 						else if ((*evil)->end.x >= scr_width || (*evil)->get_target_x() >= (*evil)->center.x)
-							(*evil)->set_path(0, (*evil)->center.y);	
+							(*evil)->set_path(0, (*evil)->center.y);
 					}
 				}
 				else if (doing == action::shoot)
@@ -1624,10 +1624,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 						}
 						else
 						{
-							if (dll::Intersect((*evil)->get_rect(), Hero->get_rect()))Hero->lifes -= (*evil)->damage;
+							if (dll::Intersect((*evil)->get_rect(), Hero->get_rect()))
+								Hero->lifes -= ((*evil)->damage - Hero->armor);
 							if (sound)mciSendString(L"play .\\res\\snd\\hurt.wav", NULL, NULL, NULL);
 						}
 					}
+				}
+				else if (doing == action::patrol)(*evil)->move(speed);
+				else if (doing == action::stand )
+				{
+					float tx{ 0 };
+					float ty{ sky };
+
+					if ((*evil)->start.x >= scr_width / 2.0f)tx = scr_width;
+					if ((*evil)->start.y >= scr_height / 2.0f)ty = ground;
+					(*evil)->current_action = action::patrol;
+					(*evil)->set_path(tx, ty);
+					(*evil)->move(speed);
 				}
 			}
 		}
@@ -1752,6 +1765,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
+		if (Hero && !vMaps.empty())
+		{
+			for (std::vector<D2D1_RECT_F>::iterator map = vMaps.begin(); map < vMaps.end(); ++map)
+			{
+				
+				if (dll::Intersect(Hero->get_rect(), *map))
+				{
+					++map_pieces;
+					vMaps.erase(map);
+
+					if (map_pieces >= 8)treasure_found = true;
+
+					break;
+				}
+			}
+		}
+
 		if (!vEvils.empty() && !vHeroShots.empty())
 		{
 			for (std::vector<dll::EVIL*>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
@@ -1763,13 +1793,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					if (dll::Intersect((*evil)->center, (*shot)->center, (*evil)->x_rad, (*shot)->x_rad,
 						(*evil)->y_rad, (*shot)->y_rad))
 					{
-						(*evil)->lifes -= (*shot)->damage;
+						(*evil)->lifes -= ((*shot)->damage - (*evil)->armor);
 						(*shot)->Release();
 						vHeroShots.erase(shot);
 
 						if ((*evil)->lifes <= 0)
 						{
 							score += (*evil)->damage;
+							if (RandIt(0, 15) == 6)vMaps.push_back((*evil)->get_rect());
 							(*evil)->Release();
 							vEvils.erase(evil);
 							killed = true;
@@ -1803,11 +1834,51 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 				if (dll::Intersect((*shot)->center, Hero->center, (*shot)->x_rad, Hero->x_rad, (*shot)->y_rad, 
 					Hero->y_rad))
 				{
-					Hero->lifes -= (*shot)->damage;
+					Hero->lifes -= ((*shot)->damage - Hero->armor);
 					(*shot)->Release();
 					vEvilShots.erase(shot);
 					break;
 				}
+			}
+		}
+
+		if (!vEvils.empty() && !vChests.empty())
+		{
+			for (std::vector<dll::EVIL*>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
+			{
+				bool taken = false;
+
+				for (std::vector<D2D1_RECT_F>::iterator chest = vChests.begin(); chest < vChests.end(); ++chest)
+				{
+					if (dll::Intersect((*evil)->get_rect(), *chest))
+					{
+						assets asset{ static_cast<assets>(RandIt(0,3)) };
+						vAssetIcons.push_back(FADE{ asset, FPOINT{chest->left,chest->top} });
+						switch (asset)
+						{
+						case assets::gold:
+							if (score - 50 >= 0)score -= 50;
+							else score = 0;
+							break;
+
+						case assets::armor:
+							(*evil)->armor++;
+							break;
+
+						case assets::gun:
+							(*evil)->damage++;
+							break;
+
+						case assets::life:
+							(*evil)->lifes = (*evil)->get_max_lifes();
+							break;
+						}
+						vChests.erase(chest);
+						taken = true;
+						break;
+					}
+				}
+				if (taken) break;
 			}
 		}
 
@@ -2003,6 +2074,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 		if (!vPotions.empty())for (int i = 0; i < vPotions.size(); ++i)Draw->DrawBitmap(bmpPotion, 
 			D2D1::RectF(vPotions[i].left, vPotions[i].top, vPotions[i].right, vPotions[i].bottom));
+
+		if (treasure_found)Draw->DrawBitmap(bmpMark, TreasureMark);
 
 	////////////////////////////////////////////////////////////
 

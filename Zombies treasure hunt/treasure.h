@@ -563,7 +563,8 @@ namespace dll
 
 	public:
 		action current_action{ action::walk };
-		
+		int armor = 1;
+
 		int get_frame() override;
 		int attack() override;
 
