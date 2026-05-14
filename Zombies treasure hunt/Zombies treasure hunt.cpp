@@ -81,7 +81,6 @@ bool b1Hglt = false;
 bool b2Hglt = false;
 bool b3Hglt = false;
 
-bool hero_killed = false;
 bool treasure_found = false;
 
 ID2D1Factory* iFactory{ nullptr };
@@ -166,6 +165,8 @@ std::vector<D2D1_RECT_F> vTombs;
 std::vector<D2D1_RECT_F> vChests;
 
 std::vector<dll::SHOT*>vHeroShots;
+
+std::vector<dll::SHOT*>vEvilShots;
 
 std::vector<dll::EVIL*>vEvils;
 
@@ -306,7 +307,6 @@ void InitGame()
 	
 	wcscpy_s(current_player, L"TARLYO");
 	
-	hero_killed = false;
 	treasure_found = false;
 
 	map_pieces = 0;
@@ -664,6 +664,9 @@ void InitGame()
 
 	if (!vHeroShots.empty())for (int i = 0; i < vHeroShots.size(); ++i)FreeMem(&vHeroShots[i]);
 	vHeroShots.clear();
+
+	if (!vEvilShots.empty())for (int i = 0; i < vEvilShots.size(); ++i)FreeMem(&vEvilShots[i]);
+	vEvilShots.clear();
 
 	if (!vEvils.empty())for (int i = 0; i < vEvils.size(); ++i)FreeMem(&vEvils[i]);
 	vEvils.clear();
@@ -1605,6 +1608,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 							(*evil)->set_path(0, (*evil)->center.y);	
 					}
 				}
+				else if (doing == action::shoot)
+				{
+					if ((*evil)->attack() > 0)
+					{
+						if ((*evil)->type == moveables::soul || (*evil)->type == moveables::flyer)
+						{
+							vEvilShots.push_back(dll::SHOT::create((*evil)->center.x, (*evil)->center.y,
+								Hero->center.x, Hero->center.y, (*evil)->damage));
+							if (sound)mciSendString(L"play .\\res\\snd\\shot.wav", NULL, NULL, NULL);
+						}
+						else
+						{
+							if (dll::Intersect((*evil)->get_rect(), Hero->get_rect()))Hero->lifes -= (*evil)->damage;
+							if (sound)mciSendString(L"play .\\res\\snd\\hurt.wav", NULL, NULL, NULL);
+						}
+					}
+				}
 			}
 		}
 
@@ -1759,6 +1779,36 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
+		if (!vEvilShots.empty())
+		{
+			for (int i = 0; i < vEvilShots.size(); ++i)
+			{
+				if (!vEvilShots[i]->move(speed))
+				{
+					vEvilShots[i]->Release();
+					vEvilShots.erase(vEvilShots.begin() + i);
+					break;
+				}
+			}
+		}
+		
+		if (!vEvilShots.empty() && Hero)
+		{
+			for (std::vector<dll::SHOT*>::iterator shot = vEvilShots.begin(); shot < vEvilShots.end(); ++shot)
+			{
+				if (dll::Intersect((*shot)->center, Hero->center, (*shot)->x_rad, Hero->x_rad, (*shot)->y_rad, 
+					Hero->y_rad))
+				{
+					Hero->lifes -= (*shot)->damage;
+					(*shot)->Release();
+					vEvilShots.erase(shot);
+					break;
+				}
+			}
+		}
+
+
+
 	// DRAW THINGS **************************************************
 
 		Draw->BeginDraw();
@@ -1858,6 +1908,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			for (int i = 0; i < vHeroShots.size(); ++i)
 			{
 				Draw->DrawBitmap(bmpBullet, vHeroShots[i]->get_rect());
+			}
+		}
+
+		if (!vEvilShots.empty())
+		{
+			for (int i = 0; i < vEvilShots.size(); ++i)
+			{
+				Draw->DrawBitmap(bmpBullet, vEvilShots[i]->get_rect());
 			}
 		}
 
@@ -1963,6 +2021,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			if (b3Hglt)Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtRect, hgltBrush);
 			else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtRect, txtBrush);
 		}
+		
+		if (Hero)
+		{
+			if (Hero->lifes <= 0)
+			{
+				Draw->DrawBitmap(bmpRIP, Hero->get_rect());
+
+				FreeMem(&Hero);
+				Draw->EndDraw();
+				if (sound)
+				{
+					PlaySound(NULL, NULL, NULL);
+					PlaySound(L".\\res\\snd\\killed.wav", NULL, SND_SYNC);
+				}
+
+				GameOver();
+			}
+		}
+		
 		Draw->EndDraw();
 	}
 
