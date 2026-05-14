@@ -403,7 +403,7 @@ void InitGame()
 	if (Hero)Hero->Release();
 	while (!ok)
 	{
-		dll::HERO* dummy = dll::HERO::create(RandIt(0.0f, scr_width - 100.f), ground - 100.0f);
+		dll::HERO* dummy{ dll::HERO::create(RandIt(0.0f, scr_width - 100.f), ground - 100.0f) };
 
 		ok = true;
 
@@ -426,11 +426,8 @@ void InitGame()
 
 		if (Mountain)
 		{
-			if (dll::Intersect(dummy->get_rect(), Mountain->get_rect()))
-			{
-				ok = false;
-				break;
-			}
+			if (dll::Intersect(dummy->get_rect(), Mountain->get_rect()))ok = false;
+
 		}
 
 		if (!vTrees.empty())
