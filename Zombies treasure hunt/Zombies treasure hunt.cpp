@@ -313,12 +313,8 @@ void InitGame()
 
 	ObstBag.clear();
 
-	if (Field)
-	{
-		delete Field;
-		Field = new dll::FIELD;
-	}
-	else Field = new dll::FIELD;
+	if (Field)delete Field;
+	Field = new dll::FIELD;
 
 	vAssetIcons.clear();
 
@@ -353,7 +349,11 @@ void InitGame()
 			if (!ok)break;
 		}
 
-		if (ok)Mountain = dummy;
+		if (ok)
+		{
+			Mountain = dummy;
+			dummy = nullptr;
+		}
 		else dummy->Release();
 	}
 
@@ -445,7 +445,11 @@ void InitGame()
 			}
 		}
 
-		if (ok)Hero = dummy;
+		if (ok)
+		{
+			Hero = dummy;
+			dummy = nullptr;
+		}
 		else dummy->Release();
 	}
 
@@ -1557,7 +1561,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
-		if (!vTombs.empty() && RandIt(0, 600) == 66)
+		if (!vTombs.empty() && RandIt(0, 400) == 66)
 		{
 			int rand_tomb{ RandIt(0, (int)(vTombs.size() - 1)) };
 
