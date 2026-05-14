@@ -557,6 +557,8 @@ namespace dll
 
 		float view_range{ 0 };
 
+		int max_lifes = 0;
+
 		EVIL(moveables _who, float _sx, float _sy, float _ex, float _ey);
 
 	public:
@@ -564,6 +566,8 @@ namespace dll
 		
 		int get_frame() override;
 		int attack() override;
+
+		int get_max_lifes()const;
 
 		void Release() override;
 

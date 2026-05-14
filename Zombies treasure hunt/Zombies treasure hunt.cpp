@@ -1624,7 +1624,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					{
 						if (a_chest.left - 50.0f >= 0)a_chest.left -= 50.0f;
 						else a_chest.left += 50.0f;
-						if (a_chest.top - 50.0f >= 0)a_chest.top -= 50.0f;
+						if (a_chest.top - 50.0f >= sky)a_chest.top -= 50.0f;
 						else a_chest.top += 50.0f;
 
 						bool is_ok = false;
@@ -1660,7 +1660,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 								{
 									if (a_chest.left - 50.0f >= 0)a_chest.left -= 50.0f;
 									else a_chest.left += 50.0f;
-									if (a_chest.top - 50.0f >= 0)a_chest.top -= 50.0f;
+									if (a_chest.top - 50.0f >= sky)a_chest.top -= 50.0f;
 									else a_chest.top += 50.0f;
 									is_ok = false;
 								}
@@ -1674,7 +1674,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 									{
 										if (a_chest.left - 50.0f >= 0)a_chest.left -= 50.0f;
 										else a_chest.left += 50.0f;
-										if (a_chest.top - 50.0f >= 0)a_chest.top -= 50.0f;
+										if (a_chest.top - 50.0f >= sky)a_chest.top -= 50.0f;
 										else a_chest.top += 50.0f;
 										is_ok = false;
 										break;
@@ -1728,6 +1728,36 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
+		if (!vEvils.empty() && !vHeroShots.empty())
+		{
+			for (std::vector<dll::EVIL*>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
+			{
+				bool killed = false;
+
+				for (std::vector<dll::SHOT*>::iterator shot = vHeroShots.begin(); shot < vHeroShots.end(); ++shot)
+				{
+					if (dll::Intersect((*evil)->center, (*shot)->center, (*evil)->x_rad, (*shot)->x_rad,
+						(*evil)->y_rad, (*shot)->y_rad))
+					{
+						(*evil)->lifes -= (*shot)->damage;
+						(*shot)->Release();
+						vHeroShots.erase(shot);
+
+						if ((*evil)->lifes <= 0)
+						{
+							score += (*evil)->damage;
+							(*evil)->Release();
+							vEvils.erase(evil);
+							killed = true;
+						}
+
+						break;
+					}
+				}
+
+				if (killed)break;
+			}
+		}
 
 	// DRAW THINGS **************************************************
 
@@ -1864,6 +1894,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 						vEvils[i]->start.x, vEvils[i]->start.y));
 					break;
 				}
+
+				float life_ratio = (float)(vEvils[i]->lifes * (vEvils[i]->get_width() / vEvils[i]->get_max_lifes()));
+
+				Draw->DrawLine(D2D1::Point2F(vEvils[i]->start.x, vEvils[i]->end.y + 6.0f),
+					D2D1::Point2F(vEvils[i]->end.x, vEvils[i]->end.y + 6.0f), grayBrush, 5.0f);
+				Draw->DrawLine(D2D1::Point2F(vEvils[i]->start.x, vEvils[i]->end.y + 6.1f),
+					D2D1::Point2F(vEvils[i]->start.x + life_ratio, vEvils[i]->end.y + 6.1f), txtBrush, 2.0f);
 			}
 		}
 
