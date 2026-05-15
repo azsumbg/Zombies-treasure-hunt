@@ -1558,18 +1558,21 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
-		if (!vTombs.empty() && RandIt(0, 400) == 66)
+		if (!vTombs.empty() && RandIt(0, 200) == 66)
 		{
 			int rand_tomb{ RandIt(0, (int)(vTombs.size() - 1)) };
 
 			float tex{ 0 };
 			float tey{ ground - 100.0f };
 
-			if (vTombs[rand_tomb].left > scr_width / 2.0f)tex = scr_width - 100.0f;
-			if (vTombs[rand_tomb].top < scr_height / 2.0f)tey = sky;
+			if (vTombs[rand_tomb].left < scr_width / 2.0f)tex = scr_width - 100.0f;
+			if (vTombs[rand_tomb].top > scr_height / 2.0f)tey = sky;
 			
 			vEvils.push_back(dll::EVIL::create(static_cast<moveables>(RandIt(0, 3)), vTombs[rand_tomb].left + 30.0f,
 				vTombs[rand_tomb].top + 30.0f, tex, tey));
+
+			if (sound)(mciSendString(L"play .\\res\\snd\\evil_born.wav", NULL, NULL, NULL));
+
 		}
 
 		if (!vEvils.empty() && Hero)
@@ -1797,10 +1800,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 						if ((*evil)->lifes <= 0)
 						{
 							score += (*evil)->damage;
-							if (RandIt(0, 15) == 6)vMaps.push_back((*evil)->get_rect());
+							if (RandIt(0, 8) == 6)vMaps.push_back((*evil)->get_rect());
 							(*evil)->Release();
 							vEvils.erase(evil);
 							killed = true;
+							if (sound)(mciSendString(L"play .\\res\\snd\\evil_killed.wav", NULL, NULL, NULL));
+
 						}
 
 						break;
@@ -1834,6 +1839,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					Hero->lifes -= ((*shot)->damage - Hero->armor);
 					(*shot)->Release();
 					vEvilShots.erase(shot);
+					if (sound)(mciSendString(L"play .\\res\\snd\\hurt.wav", NULL, NULL, NULL));
 					break;
 				}
 			}
@@ -1856,18 +1862,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 						case assets::gold:
 							if (score - 50 >= 0)score -= 50;
 							else score = 0;
+							if (sound)(mciSendString(L"play .\\res\\snd\\gold.wav", NULL, NULL, NULL));
 							break;
 
 						case assets::armor:
 							(*evil)->armor++;
+							if (sound)(mciSendString(L"play .\\res\\snd\\armor.wav", NULL, NULL, NULL));
 							break;
 
 						case assets::gun:
 							(*evil)->damage++;
+							if (sound)(mciSendString(L"play .\\res\\snd\\weapon.wav", NULL, NULL, NULL));
 							break;
 
 						case assets::life:
 							(*evil)->lifes = (*evil)->get_max_lifes();
+							if (sound)(mciSendString(L"play .\\res\\snd\\heal.wav", NULL, NULL, NULL));
 							break;
 						}
 						vChests.erase(chest);
@@ -1879,7 +1889,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
-
+		if (!vPotions.empty() && Hero)
+		{
+			for (std::vector<D2D1_RECT_F>::iterator pot = vPotions.begin(); pot < vPotions.end(); ++pot)
+			{
+				if (dll::Intersect(Hero->get_rect(), *pot))
+				{
+					if (Hero->lifes + 20 <= 200)Hero->lifes += 20;
+					else Hero->lifes = 200;
+					if (sound)(mciSendString(L"play .\\res\\snd\\heal.wav", NULL, NULL, NULL));
+					vPotions.erase(pot);
+					break;
+				}
+			}
+		}
 
 	// DRAW THINGS **************************************************
 
