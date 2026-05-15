@@ -125,6 +125,7 @@ ID2D1Bitmap* bmpTree2{ nullptr };
 ID2D1Bitmap* bmpTree3{ nullptr };
 ID2D1Bitmap* bmpWater{ nullptr };
 ID2D1Bitmap* bmpWin{ nullptr };
+ID2D1Bitmap* bmpLevelUp{ nullptr };
 
 ID2D1Bitmap* bmpIntro[16]{ nullptr };
 
@@ -245,6 +246,7 @@ void ReleaseResources()
 	if (!FreeMem(&bmpTree3))LogErr(L"Error unloading D2D1 bmpTree3 !");
 	if (!FreeMem(&bmpWater))LogErr(L"Error unloading D2D1 bmpWater !");
 	if (!FreeMem(&bmpWin))LogErr(L"Error unloading D2D1 bmpWin !");
+	if (!FreeMem(&bmpLevelUp))LogErr(L"Error unloading D2D1 bmpLevelUp !");
 
 	for (int i = 0; i < 16; ++i)if (!FreeMem(&bmpIntro[i]))LogErr(L"Error unloading D2D1 bmpIntro !");
 
@@ -360,6 +362,7 @@ void InitGame()
 	ok = false;
 	
 	if (!vTrees.empty())for (int i = 0; i < vTrees.size(); ++i)FreeMem(&vTrees[i]);
+	vTrees.clear();
 	for (int i = 0; i < 7; ++i)
 	{
 		ok = false;
@@ -685,7 +688,402 @@ void InitGame()
 	ObstBag.push_back(Mountain->get_rect());
 
 	for (int i = 0; i < vTrees.size(); ++i)ObstBag.push_back(vTrees[i]->get_rect());
+}
+void LevelUp()
+{
+	Draw->BeginDraw();
+	Draw->DrawBitmap(bmpLevelUp, FullScreenRect);
+	Draw->EndDraw();
+	if (sound)
+	{
+		PlaySound(NULL, NULL, NULL);
+		PlaySound(L".\\res\\snd\\levelup.wav", NULL, SND_SYNC);
+		PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
+	}
+	else Sleep(4000);
 
+	score += 100 * (int)(speed);
+	++speed;
+	
+	treasure_found = false;
+
+	map_pieces = 0;
+
+	ObstBag.clear();
+
+	if (Field)delete Field;
+	Field = new dll::FIELD;
+
+	vAssetIcons.clear();
+
+	vMaps.clear();
+	vPotions.clear();
+
+	if (Mountain)Mountain->Release();
+
+	bool ok{ false };
+
+	while (!ok)
+	{
+		dll::NATURE* dummy{ dll::NATURE::create(static_cast<nature>(RandIt(3,4)),RandIt(0.0f,scr_width - 100.0f),
+			RandIt(sky,ground - 100.0f)) };
+
+		ok = true;
+
+		for (int row = 0; row < FIELD_ROWS; ++row)
+		{
+			for (int col = 0; col < FIELD_COLS; ++col)
+			{
+				if (Field->is_water_tile(row, col))
+				{
+					if (dll::Intersect(dummy->get_rect(), Field->get_tile_rect(row, col)))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!ok)break;
+		}
+
+		if (ok)
+		{
+			Mountain = dummy;
+			dummy = nullptr;
+		}
+		else dummy->Release();
+	}
+
+	ok = false;
+
+	if (!vTrees.empty())for (int i = 0; i < vTrees.size(); ++i)FreeMem(&vTrees[i]);
+	vTrees.clear();
+	for (int i = 0; i < 7; ++i)
+	{
+		ok = false;
+
+		while (!ok)
+		{
+			dll::NATURE* dummy{ dll::NATURE::create(static_cast<nature>(RandIt(0,2)),RandIt(0.0f,scr_width - 50.0f),
+				RandIt(sky,ground - 50.0f)) };
+
+			ok = true;
+
+			for (int row = 0; row < FIELD_ROWS; ++row)
+			{
+				for (int col = 0; col < FIELD_COLS; ++col)
+				{
+					if (Field->is_water_tile(row, col))
+					{
+						if (dll::Intersect(dummy->get_rect(), Field->get_tile_rect(row, col)))
+						{
+							ok = false;
+							break;
+						}
+					}
+				}
+
+				if (!ok)break;
+			}
+
+			if (Mountain)
+			{
+				if (dll::Intersect(Mountain->get_rect(), dummy->get_rect()))ok = false;
+			}
+
+			if (ok)vTrees.push_back(dummy);
+			else dummy->Release();
+		}
+	}
+
+	ok = false;
+
+	if (Hero)Hero->Release();
+	while (!ok)
+	{
+		dll::HERO* dummy{ dll::HERO::create(RandIt(0.0f, scr_width - 100.f), ground - 100.0f) };
+
+		ok = true;
+
+		for (int row = 0; row < FIELD_ROWS; ++row)
+		{
+			for (int col = 0; col < FIELD_COLS; ++col)
+			{
+				if (Field->is_water_tile(row, col))
+				{
+					if (dll::Intersect(dummy->get_rect(), Field->get_tile_rect(row, col)))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!ok)break;
+		}
+
+		if (Mountain)
+		{
+			if (dll::Intersect(dummy->get_rect(), Mountain->get_rect()))ok = false;
+
+		}
+
+		if (!vTrees.empty())
+		{
+			for (int i = 0; i < vTrees.size(); ++i)
+			{
+				if (dll::Intersect(dummy->get_rect(), vTrees[i]->get_rect()))
+				{
+					ok = false;
+					break;
+				}
+			}
+		}
+
+		if (ok)
+		{
+			Hero = dummy;
+			dummy = nullptr;
+		}
+		else dummy->Release();
+	}
+
+	ok = false;
+
+	vTombs.clear();
+	for (int i = 0; i < 5; ++i)
+	{
+		ok = false;
+
+		while (!ok)
+		{
+			float sx = RandIt(0.0f, scr_width - 50.0f);
+			float sy = RandIt(sky, ground - 50.0f);
+
+			float ex = sx + 60.0f;
+			float ey = sy + 59.0f;
+
+			D2D1_RECT_F dummy{ sx, sy, ex, ey };
+
+			ok = true;
+
+			for (int row = 0; row < FIELD_ROWS; ++row)
+			{
+				for (int col = 0; col < FIELD_COLS; ++col)
+				{
+					if (Field->is_water_tile(row, col))
+					{
+						if (dll::Intersect(dummy, Field->get_tile_rect(row, col)))
+						{
+							ok = false;
+							break;
+						}
+					}
+				}
+
+				if (!ok)break;
+			}
+
+			if (Mountain)
+			{
+				if (dll::Intersect(Mountain->get_rect(), dummy))ok = false;
+			}
+
+			if (!vTrees.empty())
+			{
+				for (int i = 0; i < vTrees.size(); ++i)
+				{
+					if (dll::Intersect(dummy, vTrees[i]->get_rect()))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!vTombs.empty())
+			{
+				for (int i = 0; i < vTombs.size(); ++i)
+				{
+					if (dll::Intersect(dummy, vTombs[i]))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (ok)vTombs.push_back(dummy);
+		}
+	}
+
+	ok = false;
+
+	vChests.clear();
+	for (int i = 0; i < 5; ++i)
+	{
+		ok = false;
+
+		while (!ok)
+		{
+			float sx = RandIt(0.0f, scr_width - 50.0f);
+			float sy = RandIt(sky, ground - 50.0f);
+
+			float ex = sx + 32.0f;
+			float ey = sy + 32.0f;
+
+			D2D1_RECT_F dummy{ sx, sy, ex, ey };
+
+			ok = true;
+
+			for (int row = 0; row < FIELD_ROWS; ++row)
+			{
+				for (int col = 0; col < FIELD_COLS; ++col)
+				{
+					if (Field->is_water_tile(row, col))
+					{
+						if (dll::Intersect(dummy, Field->get_tile_rect(row, col)))
+						{
+							ok = false;
+							break;
+						}
+					}
+				}
+
+				if (!ok)break;
+			}
+
+			if (Mountain)
+			{
+				if (dll::Intersect(Mountain->get_rect(), dummy))ok = false;
+			}
+
+			if (!vTrees.empty())
+			{
+				for (int i = 0; i < vTrees.size(); ++i)
+				{
+					if (dll::Intersect(dummy, vTrees[i]->get_rect()))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!vTombs.empty())
+			{
+				for (int i = 0; i < vTombs.size(); ++i)
+				{
+					if (dll::Intersect(dummy, vTombs[i]))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!vChests.empty())
+			{
+				for (int i = 0; i < vChests.size(); ++i)
+				{
+					if (dll::Intersect(dummy, vChests[i]))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (ok)vChests.push_back(dummy);
+		}
+	}
+
+	ok = false;
+
+	while (!ok)
+	{
+		ok = true;
+
+		float sx = RandIt(0.0f, scr_width - 50.0f);
+		float sy = RandIt(sky, ground - 50.0f);
+
+		float ex = sx + 100.0f;
+		float ey = sy + 95.0f;
+
+		D2D1_RECT_F dummy{ sx, sy, ex, ey };
+
+		for (int row = 0; row < FIELD_ROWS; ++row)
+		{
+			for (int col = 0; col < FIELD_COLS; ++col)
+			{
+				if (Field->is_water_tile(row, col))
+				{
+					if (dll::Intersect(dummy, Field->get_tile_rect(row, col)))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!ok)break;
+		}
+
+		if (Mountain)
+		{
+			if (dll::Intersect(Mountain->get_rect(), dummy))ok = false;
+		}
+
+		if (!vTrees.empty())
+		{
+			for (int i = 0; i < vTrees.size(); ++i)
+			{
+				if (dll::Intersect(dummy, vTrees[i]->get_rect()))
+				{
+					ok = false;
+					break;
+				}
+			}
+		}
+
+		if (!vTombs.empty())
+		{
+			for (int i = 0; i < vTombs.size(); ++i)
+			{
+				if (dll::Intersect(dummy, vTombs[i]))
+				{
+					ok = false;
+					break;
+				}
+			}
+		}
+
+		if (ok)TreasureMark = dummy;
+	}
+
+	if (!vHeroShots.empty())for (int i = 0; i < vHeroShots.size(); ++i)FreeMem(&vHeroShots[i]);
+	vHeroShots.clear();
+
+	if (!vEvilShots.empty())for (int i = 0; i < vEvilShots.size(); ++i)FreeMem(&vEvilShots[i]);
+	vEvilShots.clear();
+
+	if (!vEvils.empty())for (int i = 0; i < vEvils.size(); ++i)FreeMem(&vEvils[i]);
+	vEvils.clear();
+
+	// Obstacles BAG /////////////////////////////////////////////////
+
+	for (int row = 0; row < FIELD_ROWS; ++row)
+	{
+		for (int col = 0; col < FIELD_COLS; ++col)
+		{
+			if (Field->is_water_tile(row, col))ObstBag.push_back(Field->get_tile_rect(row, col));
+		}
+	}
+
+	ObstBag.push_back(Mountain->get_rect());
+
+	for (int i = 0; i < vTrees.size(); ++i)ObstBag.push_back(vTrees[i]->get_rect());
 }
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
@@ -1023,131 +1421,137 @@ void CreateResources()
 			}
 
 			bmpIconArmor = Load(L".\\res\\img\\assets\\icons\\armor.png", Draw);
-			if (hr != S_OK)
+			if (!bmpIconArmor)
 			{
 				LogErr(L"Error loading bmpIconArmor !");
 				ErrExit(eD2D);
 			}
 			bmpIconGold = Load(L".\\res\\img\\assets\\icons\\gold.png", Draw);
-			if (hr != S_OK)
+			if (!bmpIconGold)
 			{
 				LogErr(L"Error loading bmpIconGold !");
 				ErrExit(eD2D);
 			}
 			bmpIconGun = Load(L".\\res\\img\\assets\\icons\\gun.png", Draw);
-			if (hr != S_OK)
+			if (!bmpIconGun)
 			{
 				LogErr(L"Error loading bmpIconGun !");
 				ErrExit(eD2D);
 			}
 
 			bmpBullet = Load(L".\\res\\img\\assets\\bullet.png", Draw);
-			if (hr != S_OK)
+			if (!bmpBullet)
 			{
 				LogErr(L"Error loading bmpBullet !");
 				ErrExit(eD2D);
 			}
 			bmpChest = Load(L".\\res\\img\\assets\\chest.png", Draw);
-			if (hr != S_OK)
+			if (!bmpChest)
 			{
 				LogErr(L"Error loading bmpChest !");
 				ErrExit(eD2D);
 			}
 			bmpMap = Load(L".\\res\\img\\assets\\map.png", Draw);
-			if (hr != S_OK)
+			if (!bmpMap)
 			{
 				LogErr(L"Error loading bmpMap !");
 				ErrExit(eD2D);
 			}
 			bmpPotion = Load(L".\\res\\img\\assets\\potion.png", Draw);
-			if (hr != S_OK)
+			if (!bmpPotion)
 			{
 				LogErr(L"Error loading bmpPotion !");
 				ErrExit(eD2D);
 			}
 
 			bmpDirt = Load(L".\\res\\img\\field\\dirt.png", Draw);
-			if (hr != S_OK)
+			if (!bmpDirt)
 			{
 				LogErr(L"Error loading bmpDirt !");
 				ErrExit(eD2D);
 			}
 			bmpLogo = Load(L".\\res\\img\\field\\logo.png", Draw);
-			if (hr != S_OK)
+			if (!bmpLogo)
 			{
 				LogErr(L"Error loading bmpLogo !");
 				ErrExit(eD2D);
 			}
 			bmpLoose = Load(L".\\res\\img\\field\\loose.png", Draw);
-			if (hr != S_OK)
+			if (!bmpLoose)
 			{
 				LogErr(L"Error loading bmpLoose !");
 				ErrExit(eD2D);
 			}
 			bmpMark = Load(L".\\res\\img\\field\\mark.png", Draw);
-			if (hr != S_OK)
+			if (!bmpMark)
 			{
 				LogErr(L"Error loading bmpMark !");
 				ErrExit(eD2D);
 			}
 			bmpMountain1 = Load(L".\\res\\img\\field\\Mountain1.png", Draw);
-			if (hr != S_OK)
+			if (!bmpMountain1)
 			{
 				LogErr(L"Error loading bmpMountain1 !");
 				ErrExit(eD2D);
 			}
 			bmpMountain2 = Load(L".\\res\\img\\field\\Mountain2.png", Draw);
-			if (hr != S_OK)
+			if (!bmpMountain2)
 			{
 				LogErr(L"Error loading bmpMountain2 !");
 				ErrExit(eD2D);
 			}
 			bmpRecord = Load(L".\\res\\img\\field\\Record.png", Draw);
-			if (hr != S_OK)
+			if (!bmpRecord)
 			{
 				LogErr(L"Error loading bmpRecord !");
 				ErrExit(eD2D);
 			}
 			bmpRIP = Load(L".\\res\\img\\field\\RIP.png", Draw);
-			if (hr != S_OK)
+			if (!bmpRIP)
 			{
 				LogErr(L"Error loading bmpRIP !");
 				ErrExit(eD2D);
 			}
 			bmpTomb = Load(L".\\res\\img\\field\\Tomb.png", Draw);
-			if (hr != S_OK)
+			if (!bmpTomb)
 			{
 				LogErr(L"Error loading bmpTomb !");
 				ErrExit(eD2D);
 			}
 			bmpTree1 = Load(L".\\res\\img\\field\\Tree1.png", Draw);
-			if (hr != S_OK)
+			if (!bmpTree1)
 			{
 				LogErr(L"Error loading bmpTree1 !");
 				ErrExit(eD2D);
 			}
 			bmpTree2 = Load(L".\\res\\img\\field\\Tree2.png", Draw);
-			if (hr != S_OK)
+			if (!bmpTree2)
 			{
 				LogErr(L"Error loading bmpTree2 !");
 				ErrExit(eD2D);
 			}
 			bmpTree3 = Load(L".\\res\\img\\field\\Tree3.png", Draw);
-			if (hr != S_OK)
+			if (!bmpTree3)
 			{
 				LogErr(L"Error loading bmpTree3 !");
 				ErrExit(eD2D);
 			}
 			bmpWater = Load(L".\\res\\img\\field\\water.png", Draw);
-			if (hr != S_OK)
+			if (!bmpWater)
 			{
 				LogErr(L"Error loading bmpWater !");
 				ErrExit(eD2D);
 			}
 			bmpWin = Load(L".\\res\\img\\field\\Win.png", Draw);
-			if (hr != S_OK)
+			if (!bmpWin)
 			{
 				LogErr(L"Error loading bmpWin !");
+				ErrExit(eD2D);
+			}
+			bmpLevelUp = Load(L".\\res\\img\\field\\levelup.png", Draw);
+			if (!bmpLevelUp)
+			{
+				LogErr(L"Error loading bmplevelup !");
 				ErrExit(eD2D);
 			}
 
@@ -1451,7 +1855,6 @@ void CreateResources()
 	Draw->EndDraw();
 	PlaySound(L".\\res\\snd\\boom.wav", NULL, SND_SYNC);
 }
-
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
@@ -1903,6 +2306,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 				}
 			}
 		}
+
+		if (treasure_found && dll::Intersect(Hero->center, FPOINT{ TreasureMark.left + 50.0f, TreasureMark.top + 47.0f },
+			Hero->x_rad, 50.0f, Hero->y_rad, 47.0f))LevelUp();
 
 	// DRAW THINGS **************************************************
 
