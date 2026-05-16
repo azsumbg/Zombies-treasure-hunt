@@ -128,6 +128,7 @@ ID2D1Bitmap* bmpWin{ nullptr };
 ID2D1Bitmap* bmpLevelUp{ nullptr };
 
 ID2D1Bitmap* bmpIntro[16]{ nullptr };
+ID2D1Bitmap* bmpFog[60]{ nullptr };
 
 ID2D1Bitmap* bmpFlyerL[11]{ nullptr };
 ID2D1Bitmap* bmpFlyerR[11]{ nullptr };
@@ -149,6 +150,27 @@ ID2D1Bitmap* bmpHeroWalkR[16]{ nullptr };
 
 /////////////////////////////////////////////////////
 
+struct FOG
+{
+	float start_x{ 0 };
+	float start_y{ 0 };
+
+	int frame = 0;
+	int duration = 501;
+
+	int get_frame()
+	{
+		++frame;
+		if (frame > 59)frame = 0;
+		return frame;
+	}
+	int get_duration()
+	{
+		--duration;
+		return duration;
+	}
+};
+
 dll::RANDIT RandIt{};
 
 dll::FIELD* Field{ nullptr };
@@ -164,6 +186,8 @@ std::vector<dll::NATURE*> vTrees;
 std::vector<D2D1_RECT_F> vTombs;
 
 std::vector<D2D1_RECT_F> vChests;
+
+std::vector<FOG>vFogs;
 
 std::vector<dll::SHOT*>vHeroShots;
 
@@ -249,6 +273,7 @@ void ReleaseResources()
 	if (!FreeMem(&bmpLevelUp))LogErr(L"Error unloading D2D1 bmpLevelUp !");
 
 	for (int i = 0; i < 16; ++i)if (!FreeMem(&bmpIntro[i]))LogErr(L"Error unloading D2D1 bmpIntro !");
+	for (int i = 0; i < 60; ++i)if (!FreeMem(&bmpFog[i]))LogErr(L"Error unloading D2D1 bmpFog !");
 
 	for (int i = 0; i < 11; ++i)if (!FreeMem(&bmpFlyerL[i]))LogErr(L"Error unloading D2D1 bmpFlayerL !");
 	for (int i = 0; i < 11; ++i)if (!FreeMem(&bmpFlyerR[i]))LogErr(L"Error unloading D2D1 bmpFlayerR !");
@@ -319,6 +344,8 @@ void InitGame()
 	Field = new dll::FIELD;
 
 	vAssetIcons.clear();
+
+	vFogs.clear();
 
 	vMaps.clear();
 	vPotions.clear();
@@ -715,6 +742,8 @@ void LevelUp()
 	Field = new dll::FIELD;
 
 	vAssetIcons.clear();
+
+	vFogs.clear();
 
 	vMaps.clear();
 	vPotions.clear();
@@ -1298,6 +1327,11 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 		{
 			if (LOWORD(lParam) >= b1Rect.left * x_scale && LOWORD(lParam) <= b1Rect.right * x_scale)
 			{
+				if (name_set)
+				{
+					if(sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+					break;
+				}
 				pause = true;
 				if (sound)mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
 				if (DialogBox(bIns, MAKEINTRESOURCE(IDD_PLAYER), hwnd, &DlgProc) == IDOK)name_set = true;
@@ -1605,6 +1639,25 @@ void CreateResources()
 				if (!bmpIntro[i])
 				{
 					LogErr(L"Error loading bmpIntro !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 60; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\field\\fog\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpFog[i] = Load(name, Draw);
+				if (!bmpFog[i])
+				{
+					LogErr(L"Error loading bmpFog !");
 					ErrExit(eD2D);
 				}
 			}
@@ -2244,7 +2297,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 								if (!treasure_found && RandIt(0, 2) == 1)
 									vMaps.push_back(D2D1::RectF((*evil)->start.x, (*evil)->start.y,
 										(*evil)->start.x + 32.0f, (*evil)->start.y + 32.0f));
-								else vPotions.push_back((*evil)->get_rect());
+								else vPotions.push_back(D2D1::RectF((*evil)->start.x, (*evil)->start.y,
+									(*evil)->start.x + 32.0f, (*evil)->start.y + 32.0f));
 							}
 							(*evil)->Release();
 							vEvils.erase(evil);
@@ -2351,6 +2405,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 		if (treasure_found && dll::Intersect(Hero->center, FPOINT{ TreasureMark.left + 50.0f, TreasureMark.top + 47.0f },
 			Hero->x_rad, 50.0f, Hero->y_rad, 47.0f))LevelUp();
+
+		if (vFogs.size() < 2 && RandIt(0, 800) == 666)vFogs.push_back(FOG{ RandIt(0.0f,scr_width - 200.0f),
+			RandIt(sky,ground - 200.0f) });
 
 	// DRAW THINGS **************************************************
 
@@ -2547,6 +2604,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 	////////////////////////////////////////////////////////////
 
+		if (!vFogs.empty())
+		{
+			for (int i = 0; i < vFogs.size(); ++i)
+			{
+				int frame = vFogs[i].get_frame();
+
+				Draw->DrawBitmap(bmpFog[frame], Resizer(bmpFog[frame], vFogs[i].start_x, vFogs[i].start_y));
+
+				if (vFogs[i].get_duration() <= 0)
+				{
+					vFogs.erase(vFogs.begin() + i);
+					break;
+				}
+			}
+		}
+
 		if (nrmText && statBrush && txtBrush && hgltBrush && inactBrush && b1Bckg && b2Bckg && b3Bckg)
 		{
 			Draw->FillRectangle(D2D1::RectF(0, 0, scr_width, 50.0f), statBrush);
@@ -2567,6 +2640,43 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtRect, txtBrush);
 		}
 		
+		if (nrmText && grayBrush)
+		{
+			wchar_t stat_txt[150]{ L"зомби поле: " };
+			wchar_t add[5]{ L"\0" };
+			int size = 0;
+
+			wsprintf(add, L"%d", (int)(speed));
+			wcscat_s(stat_txt, add);
+
+			wcscat_s(stat_txt, L", резултат: ");
+			wsprintf(add, L"%d", score);
+			wcscat_s(stat_txt, add);
+
+			wcscat_s(stat_txt, L", оставащи парчета от картата: ");
+			wsprintf(add, L"%d", 8 - map_pieces);
+			wcscat_s(stat_txt, add);
+
+			if (Hero)
+			{
+				wcscat_s(stat_txt, L", броня: ");
+				wsprintf(add, L"%d", Hero->armor);
+				wcscat_s(stat_txt, add);
+
+				wcscat_s(stat_txt, L", сила: ");
+				wsprintf(add, L"%d", Hero->damage);
+				wcscat_s(stat_txt, add);
+			}
+
+			for (int i = 0; i < 150; ++i)
+			{
+				if (stat_txt[i] != '\0')++size;
+				else break;
+			}
+
+			Draw->DrawTextW(stat_txt, size, nrmText, D2D1::RectF(10.0f, ground + 5.0f, scr_width, scr_height), grayBrush);
+		}
+
 		if (Hero)
 		{
 			if (Hero->lifes <= 0)
@@ -2592,7 +2702,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					else break;
 				}
 				Draw->DrawTextW(current_player, name_size, nrmText, D2D1::RectF(Hero->start.x, Hero->start.y - 20.0f,
-					Hero->end.x, Hero->start.y), txtBrush);
+					Hero->end.x + 50.0f, Hero->start.y), txtBrush);
 			}
 		}
 		
