@@ -1099,15 +1099,24 @@ INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 		break;
 
 	case WM_COMMAND:
-		if (GetDlgItemText(hwnd, IDC_NAME, current_player, 16) < 1)
+		switch (LOWORD(wParam))
 		{
-			wcscpy_s(current_player, L"TARLYO");
-			if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
-			MessageBox(bHwnd, L"Ха, ха, ха ! Забрави си името !", L"Забраватор !", MB_OK | MB_APPLMODAL | MB_ICONEXCLAMATION);
+		case IDCANCEL:
 			EndDialog(hwnd, IDCANCEL);
 			break;
+
+		case IDOK:
+			if (GetDlgItemText(hwnd, IDC_NAME, current_player, 16) < 1)
+			{
+				wcscpy_s(current_player, L"TARLYO");
+				if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+				MessageBox(bHwnd, L"Ха, ха, ха ! Забрави си името !", L"Забраватор !", MB_OK | MB_APPLMODAL | MB_ICONEXCLAMATION);
+				EndDialog(hwnd, IDCANCEL);
+				break;
+			}
+			EndDialog(hwnd, IDOK);
+			break;
 		}
-		EndDialog(hwnd, IDOK);
 		break;
 	}
 
@@ -1285,7 +1294,34 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 		break;
 
 	case WM_LBUTTONDOWN:
-		if (Hero)
+		if (HIWORD(lParam) <= 50 * y_scale)
+		{
+			if (LOWORD(lParam) >= b1Rect.left * x_scale && LOWORD(lParam) <= b1Rect.right * x_scale)
+			{
+				pause = true;
+				if (sound)mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+				if (DialogBox(bIns, MAKEINTRESOURCE(IDD_PLAYER), hwnd, &DlgProc) == IDOK)name_set = true;
+				pause = false;
+				break;
+			}
+			if (LOWORD(lParam) >= b2Rect.left * x_scale && LOWORD(lParam) * x_scale <= b2Rect.right)
+			{
+				mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+				if (sound)
+				{
+					sound = false;
+					PlaySound(NULL, NULL, NULL);
+					break;
+				}
+				else
+				{
+					sound = true;
+					PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
+					break;
+				}
+			}
+		}
+		else if (Hero)
 		{
 			vHeroShots.push_back(dll::SHOT::create(Hero->center.x, Hero->center.y, (float)(LOWORD(lParam)* x_scale),
 				(float)(HIWORD(lParam)* x_scale), Hero->damage));
@@ -2082,9 +2118,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 										if (dll::Intersect(a_chest, Field->get_tile_rect(row, col)))
 										{
 											is_ok = false;
-											if (a_chest.left - 50.0f >= 0)a_chest.left -= 50.0f;
+											if (a_chest.left >= scr_width / 2.0f)a_chest.left -= 50.0f;
 											else a_chest.left += 50.0f;
-											if (a_chest.top - 50.0f >= 0)a_chest.top -= 50.0f;
+											if (a_chest.top - 50.0f >= scr_height / 2.0f)a_chest.top -= 50.0f;
 											else a_chest.top += 50.0f;
 											break;
 										}
@@ -2098,9 +2134,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 							{
 								if (dll::Intersect(Mountain->get_rect(), a_chest))
 								{
-									if (a_chest.left - 50.0f >= 0)a_chest.left -= 50.0f;
+									if (a_chest.left >= scr_width / 2.0f)a_chest.left -= 50.0f;
 									else a_chest.left += 50.0f;
-									if (a_chest.top - 50.0f >= sky)a_chest.top -= 50.0f;
+									if (a_chest.top - 50.0f >= scr_height / 2.0f)a_chest.top -= 50.0f;
 									else a_chest.top += 50.0f;
 									is_ok = false;
 								}
@@ -2112,9 +2148,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 								{
 									if (dll::Intersect(a_chest, vTrees[i]->get_rect()))
 									{
-										if (a_chest.left - 50.0f >= 0)a_chest.left -= 50.0f;
+										if (a_chest.left >= scr_width / 2.0f)a_chest.left -= 50.0f;
 										else a_chest.left += 50.0f;
-										if (a_chest.top - 50.0f >= sky)a_chest.top -= 50.0f;
+										if (a_chest.top - 50.0f >= scr_height / 2.0f)a_chest.top -= 50.0f;
 										else a_chest.top += 50.0f;
 										is_ok = false;
 										break;
@@ -2203,7 +2239,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 						if ((*evil)->lifes <= 0)
 						{
 							score += (*evil)->damage;
-							if (RandIt(0, 8) == 6)vMaps.push_back((*evil)->get_rect());
+							if (RandIt(0, 5) == 3)
+							{
+								if (!treasure_found && RandIt(0, 2) == 1)
+									vMaps.push_back(D2D1::RectF((*evil)->start.x, (*evil)->start.y,
+										(*evil)->start.x + 32.0f, (*evil)->start.y + 32.0f));
+								else vPotions.push_back((*evil)->get_rect());
+							}
 							(*evil)->Release();
 							vEvils.erase(evil);
 							killed = true;
@@ -2540,6 +2582,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 				}
 
 				GameOver();
+			}
+			else if (nrmText && txtBrush)
+			{
+				int name_size{ 0 };
+				for (int i = 0; i < 16; ++i)
+				{
+					if (current_player[i] != '\0')++name_size;
+					else break;
+				}
+				Draw->DrawTextW(current_player, name_size, nrmText, D2D1::RectF(Hero->start.x, Hero->start.y - 20.0f,
+					Hero->end.x, Hero->start.y), txtBrush);
 			}
 		}
 		
