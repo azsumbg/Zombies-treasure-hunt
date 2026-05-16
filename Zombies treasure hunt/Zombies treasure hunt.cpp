@@ -318,11 +318,69 @@ void ErrExit(int what)
 	
 	exit(1);
 }
+BOOL CheckRecord()
+{
+	if (score < 1)return no_record;
 
+	int result{ 0 };
+	CheckFile(record_file, &result);
+
+	if (result == FILE_NOT_EXIST)
+	{
+		std::wofstream rec(record_file);
+		rec << score << std::endl;
+		for (int i = 0; i < 16; ++i)rec << static_cast<int>(current_player[i]) << std::endl;
+		rec.close();
+		return first_record;
+	}
+	else
+	{
+		std::wifstream rec(record_file);
+		rec >> result;
+		rec.close();
+	}
+
+	if (result < score)
+	{
+		std::wofstream rec(record_file);
+		rec << score << std::endl;
+		for (int i = 0; i < 16; ++i)rec << static_cast<int>(current_player[i]) << std::endl;
+		rec.close();
+		return record;
+	}
+
+	return no_record;
+}
 void GameOver()
 {
 	PlaySound(NULL, NULL, NULL);
 
+	switch (CheckRecord())
+	{
+	case no_record:
+		Draw->BeginDraw();
+		Draw->DrawBitmap(bmpLoose, FullScreenRect);
+		Draw->EndDraw();
+		if (sound)PlaySound(L".\\res\\snd\\loose.wav", NULL, SND_SYNC);
+		else Sleep(4000);
+		break;
+
+	case first_record:
+		Draw->BeginDraw();
+		Draw->DrawBitmap(bmpWin, FullScreenRect);
+		Draw->EndDraw();
+		if (sound)PlaySound(L".\\res\\snd\\win.wav", NULL, SND_SYNC);
+		else Sleep(4000);
+		break;
+
+	case record:
+		Draw->BeginDraw();
+		Draw->DrawBitmap(bmpRecord, FullScreenRect);
+		Draw->EndDraw();
+		if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_SYNC);
+		else Sleep(4000);
+		break;
+	}
 
 	bMsg.message = WM_QUIT;
 	bMsg.wParam = 0;
@@ -729,7 +787,7 @@ void LevelUp()
 	}
 	else Sleep(4000);
 
-	score += 100 * (int)(speed);
+	score += 20 * (int)(speed)+Hero->lifes;
 	++speed;
 	
 	treasure_found = false;
@@ -2292,9 +2350,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 						if ((*evil)->lifes <= 0)
 						{
 							score += (*evil)->damage;
-							if (RandIt(0, 5) == 3)
+							if (RandIt(0, 3) == 3)
 							{
-								if (!treasure_found && RandIt(0, 2) == 1)
+								if (!treasure_found && RandIt(0, 1) == 1)
 									vMaps.push_back(D2D1::RectF((*evil)->start.x, (*evil)->start.y,
 										(*evil)->start.x + 32.0f, (*evil)->start.y + 32.0f));
 								else vPotions.push_back(D2D1::RectF((*evil)->start.x, (*evil)->start.y,
@@ -2406,8 +2464,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		if (treasure_found && dll::Intersect(Hero->center, FPOINT{ TreasureMark.left + 50.0f, TreasureMark.top + 47.0f },
 			Hero->x_rad, 50.0f, Hero->y_rad, 47.0f))LevelUp();
 
-		if (vFogs.size() < 2 && RandIt(0, 800) == 666)vFogs.push_back(FOG{ RandIt(0.0f,scr_width - 200.0f),
-			RandIt(sky,ground - 200.0f) });
+		if (vFogs.size() < 2 && RandIt(0, 900) == 666)
+		{
+			vFogs.push_back(FOG{ RandIt(0.0f,scr_width - 200.0f),
+			   RandIt(sky,ground - 200.0f) });
+			if (sound)mciSendString(L"play .\\res\\snd\\fog.wav", NULL, NULL, NULL);
+		}
 
 	// DRAW THINGS **************************************************
 
