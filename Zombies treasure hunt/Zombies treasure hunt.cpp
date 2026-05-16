@@ -1217,12 +1217,365 @@ void HallOfFame()
 	}
 
 	Draw->BeginDraw();
-	Draw->Clear(D2D1::ColorF(D2D1::ColorF::Brown));
-	if (bigText && hgltBrush)Draw->DrawTextW(rec_txt, result, bigText, D2D1::RectF(100.0f, 200.0f, scr_width, scr_height), 
+	Draw->Clear(D2D1::ColorF(D2D1::ColorF::Maroon));
+	if (bigText && hgltBrush)Draw->DrawTextW(rec_txt, result, bigText, D2D1::RectF(20.0f, 200.0f, scr_width, scr_height), 
 		hgltBrush);
 	Draw->EndDraw();
 	if (sound)mciSendString(L"play .\\res\\snd\\showrec.wav", NULL, NULL, NULL);
 	Sleep(4000);
+}
+void SaveGame()
+{
+	int result = 0;
+	CheckFile(save_file, &result);
+
+	if (result == FILE_EXIST)
+	{
+		if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+		if (MessageBox(bHwnd, L"Има записана игра, която ще бъде изгубена !\n\nДа я презапиша ли ?", L"Презапис",
+			MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+	}
+
+	std::wofstream save(save_file);
+
+	result = 0;
+
+	save << score << std::endl;
+	save << speed << std::endl;
+	
+	save << treasure_found << std::endl;
+	save << TreasureMark.left << std::endl;
+	save << TreasureMark.top << std::endl;
+	save << TreasureMark.right << std::endl;
+	save << TreasureMark.bottom << std::endl;
+
+	save << map_pieces << std::endl;
+
+	for (int row = 0; row < FIELD_ROWS; ++row)
+	{
+		for (int col = 0; col < FIELD_COLS; ++col)if (Field->is_water_tile(row, col))++result;
+	}
+
+	save << result << std::endl;
+
+	for (int row = 0; row < FIELD_ROWS; ++row)
+	{
+		for (int col = 0; col < FIELD_COLS; ++col)
+		{
+			if (Field->is_water_tile(row, col))
+			{
+				save << row << std::endl;
+				save << col << std::endl;
+			}
+		}
+	}
+
+	result = 0;
+
+	save << vMaps.size() << std::endl;
+	if (!vMaps.empty())
+	{
+		for (int i = 0; i < vMaps.size(); ++i)
+		{
+			save << vMaps[i].left << std::endl;
+			save << vMaps[i].top << std::endl;
+			save << vMaps[i].right << std::endl;
+			save << vMaps[i].bottom << std::endl;
+		}
+	}
+
+	save << vPotions.size() << std::endl;
+	if (!vPotions.empty())
+	{
+		for (int i = 0; i < vPotions.size(); ++i)
+		{
+			save << vPotions[i].left << std::endl;
+			save << vPotions[i].top << std::endl;
+			save << vPotions[i].right << std::endl;
+			save << vPotions[i].bottom << std::endl;
+		}
+	}
+
+	save << vTrees.size() << std::endl;
+	if (!vTrees.empty())
+	{
+		for (int i = 0; i < vPotions.size(); ++i)
+		{
+			save << static_cast<int>(vTrees[i]->type) << std::endl;
+			save << vTrees[i]->start.x << std::endl;
+			save << vTrees[i]->start.y << std::endl;
+		}
+	}
+
+	save << static_cast<int>(Mountain->type) << std::endl;
+	save << Mountain->start.x << std::endl;
+	save << Mountain->start.y << std::endl;
+
+	save << name_set << std::endl;
+	for (int i = 0; i < 16; ++i)save << static_cast<int>(current_player[i]) << std::endl;
+
+	if (!Hero)save << 0 << std::endl;
+	else
+	{
+		save << 1 << std::endl;
+		save << Hero->start.x << std::endl;
+		save << Hero->start.y << std::endl;
+		save << Hero->lifes << std::endl;
+		save << Hero->damage << std::endl;
+		save << Hero->armor << std::endl;
+	}
+
+	save << vEvils.size() << std::endl;
+	if (!vEvils.empty())
+	{
+		for (int i = 0; i < vEvils.size(); ++i)
+		{
+			save << static_cast<int>(vEvils[i]->type) << std::endl;
+			save << vEvils[i]->start.x << std::endl;
+			save << vEvils[i]->start.y << std::endl;
+			save << vEvils[i]->get_target_x() << std::endl;
+			save << vEvils[i]->get_target_y() << std::endl;
+			save << vEvils[i]->armor << std::endl;
+			save << vEvils[i]->damage << std::endl;
+			save << vEvils[i]->lifes << std::endl;
+		}
+	}
+
+	save.close();
+
+	if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
+
+	MessageBox(bHwnd, L"Играта е запазена !", L"Запис", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
+void LoadGame()
+{
+	int result = 0;
+	CheckFile(save_file, &result);
+
+	if (result == FILE_NOT_EXIST)
+	{
+		if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+		MessageBox(bHwnd, L"Все още няма записана игра !\n\nПостарай се повече", L"Липсва файл !",
+			MB_OK | MB_APPLMODAL | MB_ICONERROR);
+		return;
+	}
+	else
+	{
+		if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+		if (MessageBox(bHwnd, L"Настоящата игра ще бъде изгубена !\n\nДа я презапиша ли ?", L"Презапис",
+			MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+	}
+
+	ObstBag.clear();
+
+	if (Field)delete Field;
+	Field = new dll::FIELD;
+	for (int row = 0; row < FIELD_ROWS; ++row)
+	{
+		for (int col = 0; col < FIELD_COLS; ++col)Field->set_tile(row, col, false);
+	}
+
+	vAssetIcons.clear();
+
+	vFogs.clear();
+
+	vMaps.clear();
+	vPotions.clear();
+
+	if (Mountain)Mountain->Release();
+
+	if (!vTrees.empty())for (int i = 0; i < vTrees.size(); ++i)FreeMem(&vTrees[i]);
+	vTrees.clear();
+
+	if (Hero)Hero->Release();
+
+	vTombs.clear();
+	vChests.clear();
+
+	if (!vHeroShots.empty())for (int i = 0; i < vHeroShots.size(); ++i)FreeMem(&vHeroShots[i]);
+	vHeroShots.clear();
+
+	if (!vEvilShots.empty())for (int i = 0; i < vEvilShots.size(); ++i)FreeMem(&vEvilShots[i]);
+	vEvilShots.clear();
+
+	if (!vEvils.empty())for (int i = 0; i < vEvils.size(); ++i)FreeMem(&vEvils[i]);
+	vEvils.clear();
+
+	////////////////////////////////////////////////////////
+
+	std::wifstream save(save_file);
+
+	result = 0;
+
+	save >> score;
+	save >> speed;
+
+	save >> treasure_found;
+	save >> TreasureMark.left;
+	save >> TreasureMark.top;
+	save >> TreasureMark.right;
+	save >> TreasureMark.bottom;
+
+	save >> map_pieces;
+
+	save >> result;
+
+	if (result > 0)
+	{
+		for (int i = 0; i < result; ++i)
+		{
+			int row = 0;
+			int col = 0;
+			save >> row;
+			save >> col;
+
+			Field->set_tile(row, col, true);
+		}
+	}
+
+	save >> result;
+	if (result > 0)
+	{
+		for (int i = 0; i < result; ++i)
+		{
+			float left{ 0 };
+			float top{ 0 };
+			float right{ 0 };
+			float bottom{ 0 };
+			
+			save >> left;
+			save >> top;
+			save >> right;
+			save >> bottom;
+
+			vMaps.push_back(D2D1::RectF(left, top, right, bottom));
+		}
+	}
+
+	save >> result;
+	if (result > 0)
+	{
+		for (int i = 0; i < result; ++i)
+		{
+			float left{ 0 };
+			float top{ 0 };
+			float right{ 0 };
+			float bottom{ 0 };
+
+			save >> left;
+			save >> top;
+			save >> right;
+			save >> bottom;
+
+			vPotions.push_back(D2D1::RectF(left, top, right, bottom));
+		}
+	}
+
+	save >> result;
+	if (result > 0)
+	{
+		for (int i = 0; i < result; ++i)
+		{
+			int type = -1;
+			float tx{ 0 };
+			float ty{ 0 };
+			
+			save >> type;
+			save >> tx;
+			save >> ty;
+			
+			vTrees.push_back(dll::NATURE::create(static_cast<nature>(type), tx, ty));
+		}
+	}
+
+	int mount_type{ 0 };
+	float mount_x{ 0 };
+	float mount_y{ 0 };
+	
+	save >> mount_type;
+	save >> mount_x;
+	save >> mount_y;
+
+	Mountain = dll::NATURE::create(static_cast<nature>(mount_type), mount_x, mount_y);
+
+	save >> name_set;
+	for (int i = 0; i < 16; ++i)
+	{
+		int letter = 0;
+		save >> letter;
+		current_player[i] = static_cast<wchar_t>(letter);
+	}
+
+	save >> result;
+	if (result == 0)GameOver();
+	
+	float hero_x{ 0 };
+	float hero_y{ 0 };
+	int hero_lifes{ 0 };
+	int hero_damage{ 0 };
+	int hero_armor{ 0 };
+
+	save >> hero_x;
+	save >> hero_y;
+	save >> hero_lifes;
+	save >> hero_damage;
+	save >> hero_armor;
+
+	Hero = dll::HERO::create(hero_x, hero_y);
+	Hero->lifes = hero_lifes;
+	Hero->damage = hero_damage;
+	Hero->armor = hero_armor;
+
+	save >> result;
+	if (result > 0)
+	{
+		for (int i = 0; i < vEvils.size(); ++i)
+		{
+			int type{ 0 };
+			float evil_x{ 0 };
+			float evil_y{ 0 };
+			float evil_ex{ 0 };
+			float evil_ey{ 0 };
+			int evil_lifes{ 0 };
+			int evil_damage{ 0 };
+			int evil_armor{ 0 };
+
+			save >> type;
+			save >> evil_x;
+			save >> evil_y;
+			save >> evil_ex;
+			save >> evil_ey;
+			save >> evil_armor;
+			save >> evil_damage;
+			save >> evil_lifes;
+			
+			vEvils.push_back(dll::EVIL::create(static_cast<moveables>(type), evil_x, evil_y, evil_ex, evil_ey));
+		}
+	}
+
+	save.close();
+
+	////////////////////////////////////////////////////////
+
+	// Obstacles BAG ///////////////////////////////////////
+
+	for (int row = 0; row < FIELD_ROWS; ++row)
+	{
+		for (int col = 0; col < FIELD_COLS; ++col)
+		{
+			if (Field->is_water_tile(row, col))ObstBag.push_back(Field->get_tile_rect(row, col));
+		}
+	}
+
+	ObstBag.push_back(Mountain->get_rect());
+
+	for (int i = 0; i < vTrees.size(); ++i)ObstBag.push_back(vTrees[i]->get_rect());
+
+	///////////////////////////////////////////////////////
+
+	if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
+
+	MessageBox(bHwnd, L"Играта е заредена !", L"Зареждане", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
 }
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
@@ -1427,6 +1780,18 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 
 		case mExit:
 			SendMessage(hwnd, WM_CLOSE, NULL, NULL);
+			break;
+
+		case mSave:
+			pause = true;
+			SaveGame();
+			pause = false;
+			break;
+
+		case mLoad:
+			pause = true;
+			LoadGame();
+			pause = false;
 			break;
 
 		case mHoF:

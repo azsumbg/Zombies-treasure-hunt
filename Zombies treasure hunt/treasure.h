@@ -471,6 +471,8 @@ namespace dll
 		D2D1_RECT_F get_tile_rect(int row, int col)const;
 	
 		bool is_water_tile(int row, int col)const;
+
+		void set_tile(int row, int col, bool water);
 	};
 
 	class TREASURE_API NATURE :public PROTON
