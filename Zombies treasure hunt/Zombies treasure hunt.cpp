@@ -391,7 +391,8 @@ void InitGame()
 	score = 0;
 	
 	wcscpy_s(current_player, L"TARLYO");
-	
+	name_set = false;
+
 	treasure_found = false;
 
 	map_pieces = 0;
@@ -1258,19 +1259,18 @@ void SaveGame()
 
 	save << result << std::endl;
 
-	for (int row = 0; row < FIELD_ROWS; ++row)
-	{
-		for (int col = 0; col < FIELD_COLS; ++col)
+	if(result > 0)
+		for (int row = 0; row < FIELD_ROWS; ++row)
 		{
-			if (Field->is_water_tile(row, col))
+			for (int col = 0; col < FIELD_COLS; ++col)
 			{
-				save << row << std::endl;
-				save << col << std::endl;
+				if (Field->is_water_tile(row, col))
+				{
+					save << row << std::endl;
+					save << col << std::endl;
+				}
 			}
 		}
-	}
-
-	result = 0;
 
 	save << vMaps.size() << std::endl;
 	if (!vMaps.empty())
@@ -1296,10 +1296,34 @@ void SaveGame()
 		}
 	}
 
+	save << vChests.size() << std::endl;
+	if (!vChests.empty())
+	{
+		for (int i = 0; i < vChests.size(); ++i)
+		{
+			save << vChests[i].left << std::endl;
+			save << vChests[i].top << std::endl;
+			save << vChests[i].right << std::endl;
+			save << vChests[i].bottom << std::endl;
+		}
+	}
+
+	save << vTombs.size() << std::endl;
+	if (!vTombs.empty())
+	{
+		for (int i = 0; i < vTombs.size(); ++i)
+		{
+			save << vTombs[i].left << std::endl;
+			save << vTombs[i].top << std::endl;
+			save << vTombs[i].right << std::endl;
+			save << vTombs[i].bottom << std::endl;
+		}
+	}
+
 	save << vTrees.size() << std::endl;
 	if (!vTrees.empty())
 	{
-		for (int i = 0; i < vPotions.size(); ++i)
+		for (int i = 0; i < vTrees.size(); ++i)
 		{
 			save << static_cast<int>(vTrees[i]->type) << std::endl;
 			save << vTrees[i]->start.x << std::endl;
@@ -1476,7 +1500,45 @@ void LoadGame()
 	{
 		for (int i = 0; i < result; ++i)
 		{
-			int type = -1;
+			float left{ 0 };
+			float top{ 0 };
+			float right{ 0 };
+			float bottom{ 0 };
+
+			save >> left;
+			save >> top;
+			save >> right;
+			save >> bottom;
+
+			vChests.push_back(D2D1::RectF(left, top, right, bottom));
+		}
+	}
+
+	save >> result;
+	if (result > 0)
+	{
+		for (int i = 0; i < result; ++i)
+		{
+			float left{ 0 };
+			float top{ 0 };
+			float right{ 0 };
+			float bottom{ 0 };
+
+			save >> left;
+			save >> top;
+			save >> right;
+			save >> bottom;
+
+			vTombs.push_back(D2D1::RectF(left, top, right, bottom));
+		}
+	}
+
+	save >> result;
+	if (result > 0)
+	{
+		for (int i = 0; i < result; ++i)
+		{
+			int type = 0;
 			float tx{ 0 };
 			float ty{ 0 };
 			
@@ -1509,7 +1571,7 @@ void LoadGame()
 	save >> result;
 	if (result == 0)GameOver();
 	
-	float hero_x{ 0 };
+	float hero_x{ 100 };
 	float hero_y{ 0 };
 	int hero_lifes{ 0 };
 	int hero_damage{ 0 };
@@ -1529,7 +1591,7 @@ void LoadGame()
 	save >> result;
 	if (result > 0)
 	{
-		for (int i = 0; i < vEvils.size(); ++i)
+		for (int i = 0; i < result; ++i)
 		{
 			int type{ 0 };
 			float evil_x{ 0 };
@@ -1550,6 +1612,9 @@ void LoadGame()
 			save >> evil_lifes;
 			
 			vEvils.push_back(dll::EVIL::create(static_cast<moveables>(type), evil_x, evil_y, evil_ex, evil_ey));
+			vEvils.back()->lifes = evil_lifes;
+			vEvils.back()->armor = evil_armor;
+			vEvils.back()->damage = evil_damage;
 		}
 	}
 
