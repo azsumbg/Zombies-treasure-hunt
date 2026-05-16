@@ -1172,6 +1172,58 @@ void LevelUp()
 
 	for (int i = 0; i < vTrees.size(); ++i)ObstBag.push_back(vTrees[i]->get_rect());
 }
+void HallOfFame()
+{
+	int result{ 0 };
+	CheckFile(record_file, &result);
+
+	if (result == FILE_NOT_EXIST)
+	{
+		if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+		MessageBox(bHwnd, L"Все още няма рекорд !\n\nПостарай се повече", L"Липсва файл !",
+			MB_OK | MB_APPLMODAL | MB_ICONERROR);
+		return;
+	}
+
+	wchar_t rec_txt[100]{ L"Най-богат герой: " };
+	wchar_t add[5]{ L"\0" };
+
+	wchar_t saved_player[16]{ L"\0" };
+
+	std::wifstream rec{ record_file };
+	rec >> result;
+
+	wsprintf(add, L"%d", result);
+
+	for (int i = 0; i < 16; ++i)
+	{
+		int letter = 0;
+		rec >> letter;
+		saved_player[i] = static_cast<wchar_t>(letter);
+	}
+
+	rec.close();
+
+	wcscat_s(rec_txt, saved_player);
+	wcscat_s(rec_txt, L"\n\nсветовен рекорд: ");
+	wcscat_s(rec_txt, add);
+
+	result = 0;
+
+	for (int i = 0; i < 100; ++i)
+	{
+		if (rec_txt[i] != '\0')++result;
+		else break;
+	}
+
+	Draw->BeginDraw();
+	Draw->Clear(D2D1::ColorF(D2D1::ColorF::Brown));
+	if (bigText && hgltBrush)Draw->DrawTextW(rec_txt, result, bigText, D2D1::RectF(100.0f, 200.0f, scr_width, scr_height), 
+		hgltBrush);
+	Draw->EndDraw();
+	if (sound)mciSendString(L"play .\\res\\snd\\showrec.wav", NULL, NULL, NULL);
+	Sleep(4000);
+}
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -1377,6 +1429,11 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 			SendMessage(hwnd, WM_CLOSE, NULL, NULL);
 			break;
 
+		case mHoF:
+			pause = true;
+			HallOfFame();
+			pause = false;
+			break;
 		}
 		break;
 
