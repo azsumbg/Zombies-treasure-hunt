@@ -1181,7 +1181,7 @@ void HallOfFame()
 	if (result == FILE_NOT_EXIST)
 	{
 		if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-		MessageBox(bHwnd, L"Все още няма рекорд !\n\nПостарай се повече", L"Липсва файл !",
+		MessageBox(bHwnd, L"Все още няма рекорд !\n\nПостарай се повече !", L"Липсва файл !",
 			MB_OK | MB_APPLMODAL | MB_ICONERROR);
 		return;
 	}
@@ -1379,7 +1379,7 @@ void LoadGame()
 	if (result == FILE_NOT_EXIST)
 	{
 		if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-		MessageBox(bHwnd, L"Все още няма записана игра !\n\nПостарай се повече", L"Липсва файл !",
+		MessageBox(bHwnd, L"Все още няма записана игра !\n\nПостарай се повече !", L"Липсва файл !",
 			MB_OK | MB_APPLMODAL | MB_ICONERROR);
 		return;
 	}
@@ -1642,6 +1642,58 @@ void LoadGame()
 
 	MessageBox(bHwnd, L"Играта е заредена !", L"Зареждане", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
 }
+void ShowHelp()
+{
+	int result = 0;
+	CheckFile(help_file, &result);
+	if (result == FILE_NOT_EXIST)
+	{
+		if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+		MessageBox(bHwnd, L"Липсва помощна информация за играта !\n\nСвържете се с разработчика !", L"Липсва файл !",
+			MB_OK | MB_APPLMODAL | MB_ICONERROR);
+		return;
+	}
+
+	wchar_t help_txt[1000]{ L"\0" };
+	
+	std::wifstream help(help_file);
+	help >> result;
+	for (int i = 0; i < result; ++i)
+	{
+		int letter{ 0 };
+		help >> letter;
+		help_txt[i] = static_cast<wchar_t>(letter);
+	}
+
+	help.close();
+
+	if (sound)mciSendString(L"play .\\res\\snd\\help.wav", NULL, NULL, NULL);
+
+	Draw->BeginDraw();
+	Draw->Clear(D2D1::ColorF(D2D1::ColorF::Maroon));
+	if (nrmText && statBrush && txtBrush && hgltBrush && inactBrush && b1Bckg && b2Bckg && b3Bckg)
+	{
+		Draw->FillRectangle(D2D1::RectF(0, 0, scr_width, 50.0f), statBrush);
+		Draw->FillRoundedRectangle(D2D1::RoundedRect(b1Rect, 10.0f, 15.0f), b1Bckg);
+		Draw->FillRoundedRectangle(D2D1::RoundedRect(b2Rect, 10.0f, 15.0f), b2Bckg);
+		Draw->FillRoundedRectangle(D2D1::RoundedRect(b3Rect, 10.0f, 15.0f), b3Bckg);
+		Draw->FillRectangle(D2D1::RectF(0, ground, scr_width, scr_height), statBrush);
+
+		if (name_set)Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, inactBrush);
+		else
+		{
+			if (b1Hglt)Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, hgltBrush);
+			else Draw->DrawTextW(L"ИМЕ НА ГЕРОЙ", 13, nrmText, b1TxtRect, txtBrush);
+		}
+		if (b2Hglt)Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmText, b2TxtRect, hgltBrush);
+		else Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmText, b2TxtRect, txtBrush);
+		if (b3Hglt)Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtRect, hgltBrush);
+		else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtRect, txtBrush);
+	}
+	if (midText && hgltBrush)
+		Draw->DrawTextW(help_txt, result, midText, D2D1::RectF(50.0f, 100.0f, scr_width, scr_height), hgltBrush);
+	Draw->EndDraw();
+}
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -1868,9 +1920,9 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 		break;
 
 	case WM_LBUTTONDOWN:
-		if (HIWORD(lParam) <= 50 * y_scale)
+		if (HIWORD(lParam) * y_scale <= 50)
 		{
-			if (LOWORD(lParam) >= b1Rect.left * x_scale && LOWORD(lParam) <= b1Rect.right * x_scale)
+			if (LOWORD(lParam) * x_scale >= b1Rect.left && LOWORD(lParam) * x_scale <= b1Rect.right)
 			{
 				if (name_set)
 				{
@@ -1883,7 +1935,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 				pause = false;
 				break;
 			}
-			if (LOWORD(lParam) >= b2Rect.left * x_scale && LOWORD(lParam) * x_scale <= b2Rect.right)
+			if (LOWORD(lParam) * x_scale >= b2Rect.left && LOWORD(lParam) * x_scale <= b2Rect.right)
 			{
 				mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
 				if (sound)
@@ -1899,12 +1951,28 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 					break;
 				}
 			}
+			if (LOWORD(lParam) * x_scale >= b3Rect.left && LOWORD(lParam) * x_scale <= b3Rect.right)
+			{
+				if (!show_help)
+				{
+					show_help = true;
+					pause = true;
+					ShowHelp();
+					break;
+				}
+				else
+				{
+					show_help = false;
+					pause = false;
+					break;
+				}
+			}
 		}
 		else if (Hero)
 		{
 			vHeroShots.push_back(dll::SHOT::create(Hero->center.x, Hero->center.y, (float)(LOWORD(lParam)* x_scale),
 				(float)(HIWORD(lParam)* x_scale), Hero->damage));
-			if (sound)mciSendString(L"play .\\res\\snd\\shoot.wav", NULL, NULL, NULL);
+			if (sound)mciSendString(L"play .\\res\\snd\\shot.wav", NULL, NULL, NULL);
 		}
 		break;
 
@@ -2501,6 +2569,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 	CreateResources();
 
+	PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
+
 	while (bMsg.message != WM_QUIT)
 	{
 		if ((bRet = PeekMessage(&bMsg, NULL, NULL, NULL, PM_REMOVE)) != 0)
@@ -2608,8 +2678,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			vEvils.push_back(dll::EVIL::create(static_cast<moveables>(RandIt(0, 3)), vTombs[rand_tomb].left + 30.0f,
 				vTombs[rand_tomb].top + 30.0f, tex, tey));
 
-			if (sound)(mciSendString(L"play .\\res\\snd\\evil_born.wav", NULL, NULL, NULL));
-
+			if (sound)mciSendString(L"play .\\res\\snd\\evil_born.wav", NULL, NULL, NULL);
 		}
 
 		if (!vEvils.empty() && Hero)
@@ -2690,6 +2759,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 				
 				if (dll::Intersect(Hero->get_rect(), a_chest))
 				{
+					if (sound)mciSendString(L"play .\\res\\snd\\chest.wav", NULL, NULL, NULL);
+					
 					assets asset{ static_cast<assets>(RandIt(0,4)) };
 
 					if (asset != assets::life && asset != assets::map)
@@ -2811,6 +2882,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 				{
 					++map_pieces;
 					vMaps.erase(map);
+
+					if (sound)mciSendString(L"play .\\res\\snd\\map.wav", NULL, NULL, NULL);
 
 					if (map_pieces >= 8)treasure_found = true;
 
